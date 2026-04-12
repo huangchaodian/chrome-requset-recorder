@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Request Recorder",
+  "version": "1.0.0",
+  "description": "录制浏览器中的所有 HTTP/HTTPS 请求，支持比较、修改、重放和收藏",
+  "permissions": [
+    "webRequest",
+    "storage",
+    "tabs",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "src/background/index.ts"
+  },
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "public/icons/icon16.svg",
+      "32": "public/icons/icon32.svg",
+      "48": "public/icons/icon48.svg",
+      "128": "public/icons/icon128.svg"
+    }
+  },
+  "devtools_page": "src/devtools/devtools.html",
+  "options_page": "src/options/index.html",
+  "icons": {
+    "16": "public/icons/icon16.svg",
+    "32": "public/icons/icon32.svg",
+    "48": "public/icons/icon48.svg",
+    "128": "public/icons/icon128.svg"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

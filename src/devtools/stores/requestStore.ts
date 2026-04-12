@@ -1,0 +1,86 @@
+import { create } from 'zustand';
+import type { RequestRecord, FilterOptions } from '../../shared/types';
+
+interface RequestStoreState {
+  /** 当前请求记录列表 */
+  requests: RequestRecord[];
+  /** 选中的请求 ID 列表 */
+  selectedIds: string[];
+  /** 当前查看的请求详情 */
+  activeRequest: RequestRecord | null;
+  /** 当前视图 */
+  view: 'list' | 'detail' | 'edit' | 'compare' | 'favorites' | 'settings';
+  /** 当前过滤条件 */
+  filters: FilterOptions;
+
+  /** 设置完整请求列表（初始加载） */
+  setRequests: (requests: RequestRecord[]) => void;
+  /** 添加单条请求 */
+  addRequest: (req: RequestRecord) => void;
+  /** 删除指定请求 */
+  removeRequests: (ids: string[]) => void;
+  /** 清空所有请求 */
+  clearAll: () => void;
+  /** 设置选中项 */
+  setSelectedIds: (ids: string[]) => void;
+  /** 切换选中状态 */
+  toggleSelected: (id: string) => void;
+  /** 全选/取消全选 */
+  selectAll: (ids: string[]) => void;
+  /** 设置当前查看的请求 */
+  setActiveRequest: (req: RequestRecord | null) => void;
+  /** 切换视图 */
+  setView: (view: RequestStoreState['view']) => void;
+  /** 设置过滤条件 */
+  setFilters: (filters: Partial<FilterOptions>) => void;
+}
+
+export const useRequestStore = create<RequestStoreState>((set) => ({
+  requests: [],
+  selectedIds: [],
+  activeRequest: null,
+  view: 'list',
+  filters: { keyword: '', methods: [], statusRange: [] },
+
+  setRequests: (requests) => set({ requests }),
+
+  addRequest: (req) =>
+    set((state) => ({ requests: [...state.requests, req] })),
+
+  removeRequests: (ids) =>
+    set((state) => {
+      const idSet = new Set(ids);
+      return {
+        requests: state.requests.filter((r) => !idSet.has(r.id)),
+        selectedIds: state.selectedIds.filter((id) => !idSet.has(id)),
+      };
+    }),
+
+  clearAll: () => set({ requests: [], selectedIds: [], activeRequest: null }),
+
+  setSelectedIds: (ids) => set({ selectedIds: ids }),
+
+  toggleSelected: (id) =>
+    set((state) => {
+      const exists = state.selectedIds.includes(id);
+      return {
+        selectedIds: exists
+          ? state.selectedIds.filter((i) => i !== id)
+          : [...state.selectedIds, id],
+      };
+    }),
+
+  selectAll: (ids) =>
+    set((state) =>
+      state.selectedIds.length === ids.length
+        ? { selectedIds: [] }
+        : { selectedIds: ids }
+    ),
+
+  setActiveRequest: (req) => set({ activeRequest: req }),
+
+  setView: (view) => set({ view }),
+
+  setFilters: (filters) =>
+    set((state) => ({ filters: { ...state.filters, ...filters } })),
+}));
