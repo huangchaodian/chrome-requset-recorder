@@ -77,6 +77,9 @@ function onBeforeRequest(
   // 跳过扩展自身的请求
   if (details.url.startsWith('chrome-extension://')) return;
 
+  // 仅录制 XMLHttpRequest 和 fetch 请求
+  if (details.type !== 'xmlhttprequest') return;
+
   pendingRequests.set(details.requestId, {
     url: details.url,
     method: details.method,

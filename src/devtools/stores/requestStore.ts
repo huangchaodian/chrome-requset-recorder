@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { RequestRecord, FilterOptions } from '../../shared/types';
 
+interface DiffPair {
+  left: RequestRecord | null;
+  right: RequestRecord | null;
+}
+
 interface RequestStoreState {
   /** 当前请求记录列表 */
   requests: RequestRecord[];
@@ -12,6 +17,8 @@ interface RequestStoreState {
   view: 'list' | 'detail' | 'edit' | 'compare' | 'favorites' | 'settings';
   /** 当前过滤条件 */
   filters: FilterOptions;
+  /** Diff 比较对 */
+  diffPair: DiffPair;
 
   /** 设置完整请求列表（初始加载） */
   setRequests: (requests: RequestRecord[]) => void;
@@ -35,6 +42,12 @@ interface RequestStoreState {
   setFilters: (filters: Partial<FilterOptions>) => void;
   /** 通过 ID 更新指定请求的响应体 */
   updateResponseBody: (id: string, responseBody: string) => void;
+  /** 设置 Diff 左侧（A） */
+  setDiffLeft: (req: RequestRecord) => void;
+  /** 设置 Diff 右侧（B），自动进入比较视图 */
+  setDiffRight: (req: RequestRecord) => void;
+  /** 清除 Diff 对 */
+  clearDiff: () => void;
 }
 
 export const useRequestStore = create<RequestStoreState>((set) => ({
@@ -43,6 +56,7 @@ export const useRequestStore = create<RequestStoreState>((set) => ({
   activeRequest: null,
   view: 'detail',
   filters: { keyword: '', methods: [], statusRange: [] },
+  diffPair: { left: null, right: null },
 
   setRequests: (requests) => set({ requests }),
 
@@ -98,4 +112,18 @@ export const useRequestStore = create<RequestStoreState>((set) => ({
           : state.activeRequest;
       return { requests, activeRequest };
     }),
+
+  setDiffLeft: (req) =>
+    set((state) => ({
+      diffPair: { ...state.diffPair, left: req },
+    })),
+
+  setDiffRight: (req) =>
+    set((state) => ({
+      diffPair: { ...state.diffPair, right: req },
+      view: 'compare',
+    })),
+
+  clearDiff: () =>
+    set({ diffPair: { left: null, right: null } }),
 }));

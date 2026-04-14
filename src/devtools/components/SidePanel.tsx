@@ -2,6 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { Tooltip } from 'antd';
 import { UnorderedListOutlined, ApartmentOutlined } from '@ant-design/icons';
 import RequestTree from './RequestTree';
+import ContextMenu from './ContextMenu';
 import { useRequestStore } from '../stores/requestStore';
 import type { RequestRecord } from '../../shared/types';
 
@@ -24,12 +25,20 @@ function truncateUrl(url: string, max = 60): string {
   }
 }
 
+interface CtxMenuState {
+  x: number;
+  y: number;
+  record: RequestRecord;
+}
+
 const SidePanel: React.FC = () => {
   const [mode, setMode] = useState<ViewMode>('tree');
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const requests = useRequestStore((s) => s.requests);
   const filters = useRequestStore((s) => s.filters);
   const activeRequest = useRequestStore((s) => s.activeRequest);
   const setActiveRequest = useRequestStore((s) => s.setActiveRequest);
+  const diffPair = useRequestStore((s) => s.diffPair);
 
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
@@ -43,6 +52,11 @@ const SidePanel: React.FC = () => {
   const handleSelect = useCallback((record: RequestRecord) => {
     setActiveRequest(record);
   }, [setActiveRequest]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, record: RequestRecord) => {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY, record });
+  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', borderRight: '1px solid #e8e8e8' }}>
@@ -88,24 +102,25 @@ const SidePanel: React.FC = () => {
       {/* 内容区 */}
       <div style={{ flex: 1, overflow: 'auto' }}>
         {mode === 'tree' ? (
-          <RequestTree requests={filteredRequests} />
+          <RequestTree requests={filteredRequests} onContextMenu={handleContextMenu} />
         ) : (
-          /* 扁平列表 */
           filteredRequests.map((r) => (
             <div
               key={r.id}
               onClick={() => handleSelect(r)}
+              onContextMenu={(e) => handleContextMenu(e, r)}
               style={{
                 padding: '4px 8px', fontSize: 12, cursor: 'pointer', height: 28,
                 display: 'flex', alignItems: 'center', gap: 6,
                 borderBottom: '1px solid #f5f5f5',
-                background: activeRequest?.id === r.id ? '#e6f4ff' : 'transparent',
+                background: activeRequest?.id === r.id ? '#e6f4ff' : diffPair.left?.id === r.id ? '#fff7e6' : 'transparent',
                 whiteSpace: 'nowrap', overflow: 'hidden',
               }}
-              onMouseEnter={(e) => { if (activeRequest?.id !== r.id) e.currentTarget.style.background = '#fafafa'; }}
-              onMouseLeave={(e) => { if (activeRequest?.id !== r.id) e.currentTarget.style.background = 'transparent'; }}
+              onMouseEnter={(e) => { if (activeRequest?.id !== r.id && diffPair.left?.id !== r.id) e.currentTarget.style.background = '#fafafa'; }}
+              onMouseLeave={(e) => { if (activeRequest?.id !== r.id) e.currentTarget.style.background = diffPair.left?.id === r.id ? '#fff7e6' : 'transparent'; }}
               title={r.url}
             >
+              {diffPair.left?.id === r.id && <span style={{ color: '#fa8c16', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>A</span>}
               <span style={{ color: '#1677ff', fontWeight: 500, fontSize: 11, width: 36, flexShrink: 0 }}>{r.method}</span>
               <span style={{ color: r.responseStatus >= 400 ? '#f5222d' : '#52c41a', width: 28, flexShrink: 0, fontSize: 11 }}>{r.responseStatus}</span>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateUrl(r.url)}</span>
@@ -113,6 +128,11 @@ const SidePanel: React.FC = () => {
           ))
         )}
       </div>
+
+      {/* 右键菜单 */}
+      {ctxMenu && (
+        <ContextMenu x={ctxMenu.x} y={ctxMenu.y} record={ctxMenu.record} onClose={() => setCtxMenu(null)} />
+      )}
     </div>
   );
 };

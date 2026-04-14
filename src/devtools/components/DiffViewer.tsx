@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button, Tabs, Tag, Badge } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { CloseOutlined } from '@ant-design/icons';
 import { useRequestStore } from '../stores/requestStore';
 import { useDiff } from '../hooks/useDiff';
 import { DIFF_DIMENSIONS, type DiffDimension, type DiffSegment } from '../utils/diff';
@@ -8,9 +8,9 @@ import type { RequestRecord } from '../../shared/types';
 
 /** 差异高亮背景色 */
 const DIFF_COLORS: Record<number, { bg: string; color: string }> = {
-  [-1]: { bg: '#fdd', color: '#a00' },   // 删除：红色
-  [0]: { bg: 'transparent', color: 'inherit' },  // 相同
-  [1]: { bg: '#dfd', color: '#080' },     // 新增：绿色
+  [-1]: { bg: '#fdd', color: '#a00' },
+  [0]: { bg: 'transparent', color: 'inherit' },
+  [1]: { bg: '#dfd', color: '#080' },
 };
 
 /** 渲染差异片段 - 左侧（只显示相同+删除） */
@@ -21,7 +21,7 @@ const LeftDiffPanel: React.FC<{ diffs: DiffSegment[]; label: string }> = ({ diff
     </div>
     <pre style={preStyle}>
       {diffs.map((seg, i) => {
-        if (seg.op === 1) return null; // 左侧不显示新增
+        if (seg.op === 1) return null;
         const style = DIFF_COLORS[seg.op];
         return (
           <span key={i} style={{ backgroundColor: style.bg, color: style.color }}>
@@ -41,7 +41,7 @@ const RightDiffPanel: React.FC<{ diffs: DiffSegment[]; label: string }> = ({ dif
     </div>
     <pre style={preStyle}>
       {diffs.map((seg, i) => {
-        if (seg.op === -1) return null; // 右侧不显示删除
+        if (seg.op === -1) return null;
         const style = DIFF_COLORS[seg.op];
         return (
           <span key={i} style={{ backgroundColor: style.bg, color: style.color }}>
@@ -62,7 +62,7 @@ const preStyle: React.CSSProperties = {
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-all',
   overflow: 'auto',
-  maxHeight: 'calc(100vh - 200px)',
+  maxHeight: 'calc(100vh - 220px)',
 };
 
 /** 单维度差异内容面板 */
@@ -81,8 +81,8 @@ const DimensionDiff: React.FC<{
     );
   }
 
-  const leftLabel = `请求 A: ${left.method} ${truncateUrl(left.url)}`;
-  const rightLabel = `请求 B: ${right.method} ${truncateUrl(right.url)}`;
+  const leftLabel = `A: ${left.method} ${truncateUrl(left.url)}`;
+  const rightLabel = `B: ${right.method} ${truncateUrl(right.url)}`;
 
   return (
     <div style={{ display: 'flex', border: '1px solid #f0f0f0', borderRadius: 4, overflow: 'hidden' }}>
@@ -104,24 +104,33 @@ function truncateUrl(url: string, maxLen = 40): string {
 }
 
 const DiffViewer: React.FC = () => {
-  const requests = useRequestStore((s) => s.requests);
-  const selectedIds = useRequestStore((s) => s.selectedIds);
+  const diffPair = useRequestStore((s) => s.diffPair);
+  const clearDiff = useRequestStore((s) => s.clearDiff);
   const setView = useRequestStore((s) => s.setView);
   const [activeDim, setActiveDim] = useState<DiffDimension>('url');
 
-  // 获取选中的两条请求
-  const left = requests.find((r) => r.id === selectedIds[0]) || null;
-  const right = requests.find((r) => r.id === selectedIds[1]) || null;
+  const left = diffPair.left;
+  const right = diffPair.right;
 
   if (!left || !right) {
     return (
-      <div style={{ padding: 24, textAlign: 'center', color: '#8c8c8c' }}>
-        请从列表中选中 2 条请求后再进入比较视图
-        <br />
-        <Button type="link" onClick={() => setView('list')}>返回列表</Button>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#bfbfbf', gap: 12 }}>
+        <div style={{ fontSize: 13 }}>请选择两条请求进行比较</div>
+        <div style={{ fontSize: 12, color: '#d9d9d9' }}>
+          在左侧列表右键 → "设为 Diff A"，再右键另一条 → "设为 Diff B 并比较"
+        </div>
+        <div style={{ fontSize: 12, color: '#d9d9d9' }}>
+          或在请求详情中点击 "Diff A" / "Diff B" 按钮
+        </div>
+        <Button type="link" size="small" onClick={() => setView('detail')}>返回详情</Button>
       </div>
     );
   }
+
+  const handleClose = () => {
+    clearDiff();
+    setView('detail');
+  };
 
   const tabItems = DIFF_DIMENSIONS.map((dim) => ({
     key: dim.key,
@@ -134,22 +143,19 @@ const DiffViewer: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* 顶部工具栏 */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '8px 12px',
-          borderBottom: '1px solid #f0f0f0',
-          background: '#fafafa',
-          flexShrink: 0,
-        }}
-      >
-        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => setView('list')} size="small" />
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '8px 12px', borderBottom: '1px solid #f0f0f0',
+        background: '#fafafa', flexShrink: 0,
+      }}>
         <span style={{ fontSize: 13, fontWeight: 500 }}>请求比较</span>
-        <Tag color="blue">{left.method} {truncateUrl(left.url)}</Tag>
+        <Tag color="blue">A: {left.method} {truncateUrl(left.url)}</Tag>
         <span style={{ color: '#999' }}>vs</span>
-        <Tag color="green">{right.method} {truncateUrl(right.url)}</Tag>
+        <Tag color="green">B: {right.method} {truncateUrl(right.url)}</Tag>
+        <span style={{ flex: 1 }} />
+        <Button type="text" size="small" icon={<CloseOutlined />} onClick={handleClose}>
+          关闭
+        </Button>
       </div>
 
       {/* Tab 切换维度 + 内容 */}

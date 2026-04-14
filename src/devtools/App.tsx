@@ -19,11 +19,12 @@ const App: React.FC = () => {
   const setRequests = useRequestStore((s) => s.setRequests);
   const addRequest = useRequestStore((s) => s.addRequest);
   const updateResponseBody = useRequestStore((s) => s.updateResponseBody);
+  const setActiveRequest = useRequestStore((s) => s.setActiveRequest);
   const view = useRequestStore((s) => s.view);
   const setSettings = useSettingsStore((s) => s.setSettings);
   const { getRequests } = useMessageBridge();
 
-  // 初始化：加载请求列表和设置
+  // 初始化：加载请求列表和设置，并处理 URL 参数跳转
   useEffect(() => {
     (async () => {
       try {
@@ -33,11 +34,21 @@ const App: React.FC = () => {
         ]);
         setRequests(requests);
         setSettings(settings);
+
+        // 检查 URL 参数中是否有 requestId，自动定位到该请求
+        const params = new URLSearchParams(window.location.search);
+        const targetId = params.get('requestId');
+        if (targetId) {
+          const target = requests.find((r) => r.id === targetId);
+          if (target) {
+            setActiveRequest(target);
+          }
+        }
       } catch (err) {
         console.error('[DevTools] Init failed:', err);
       }
     })();
-  }, [getRequests, setRequests, setSettings]);
+  }, [getRequests, setRequests, setSettings, setActiveRequest]);
 
   // 监听新请求广播
   const handleNewRequest = useCallback(

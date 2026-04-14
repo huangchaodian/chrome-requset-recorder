@@ -91,10 +91,17 @@ const Popup: React.FC = () => {
           <div style={{ padding: '12px 16px', color: '#999' }}>暂无请求记录</div>
         )}
         {requests.map((r) => (
-          <div key={r.id} style={{
+          <div key={r.id} onClick={() => {
+            // 跳转到录制面板并定位到该请求
+            chrome.tabs.create({ url: chrome.runtime.getURL(`src/devtools/index.html?requestId=${r.id}`) });
+            window.close();
+          }} style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '5px 16px',
-            borderBottom: '1px solid #fafafa', fontSize: 12,
-          }}>
+            borderBottom: '1px solid #fafafa', fontSize: 12, cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#f5f5f5'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+          >
             <span style={{
               fontWeight: 600, fontSize: 10, color: getMethodColor(r.method),
               width: 36, textAlign: 'center', flexShrink: 0,

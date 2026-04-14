@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import type { RequestRecord } from '../../shared/types';
 import { useRequestStore } from '../stores/requestStore';
 
@@ -6,90 +6,77 @@ import { useRequestStore } from '../stores/requestStore';
 interface TreeNode {
   key: string;
   label: string;
-  /** 是否为域名根节点 */
   isDomain?: boolean;
   children: TreeNode[];
-  /** 叶子节点关联的请求记录 */
   record?: RequestRecord;
 }
 
-/** 将请求列表按 URL 路径构建树 */
-function buildTree(requests: RequestRecord[]): TreeNode[] {
+/** 构建结果 */
+interface BuildResult {
+  tree: TreeNode[];
+  /** recordId → 从根到叶子的所有祖先 key（不含叶子自身） */
+  ancestorMap: Map<string, string[]>;
+}
+
+/** 将请求列表按 URL 路径构建树，同时生成祖先映射 */
+function buildTree(requests: RequestRecord[]): BuildResult {
   const domainMap = new Map<string, Map<string, RequestRecord[]>>();
 
   for (const req of requests) {
     try {
       const u = new URL(req.url);
       const domain = u.host;
-      // 去掉开头的 / 再按 / 分割路径段
       const pathWithQuery = u.pathname.slice(1) + u.search;
-
-      if (!domainMap.has(domain)) {
-        domainMap.set(domain, new Map());
-      }
+      if (!domainMap.has(domain)) domainMap.set(domain, new Map());
       const pathMap = domainMap.get(domain)!;
-      if (!pathMap.has(pathWithQuery)) {
-        pathMap.set(pathWithQuery, []);
-      }
+      if (!pathMap.has(pathWithQuery)) pathMap.set(pathWithQuery, []);
       pathMap.get(pathWithQuery)!.push(req);
     } catch {
-      // URL 解析失败，放到 "other" 域下
+      // ignore
     }
   }
 
   const roots: TreeNode[] = [];
+  const ancestorMap = new Map<string, string[]>();
 
   for (const [domain, pathMap] of domainMap) {
     const domainNode: TreeNode = {
-      key: domain,
-      label: domain,
-      isDomain: true,
-      children: [],
+      key: domain, label: domain, isDomain: true, children: [],
     };
-
-    // 为该域名下的路径构建子树
-    const pathRoot: Record<string, TreeNode> = {};
 
     for (const [fullPath, records] of pathMap) {
       const segments = fullPath.split('/').filter(Boolean);
-
       let currentChildren = domainNode.children;
       let currentKey = domain;
+      const ancestorKeys: string[] = [domain];
 
-      // 构建路径层级（除最后一段外都是中间节点）
       for (let i = 0; i < segments.length - 1; i++) {
         const seg = segments[i];
         currentKey += '/' + seg;
-
         let existing = currentChildren.find((n) => n.label === seg && !n.record);
         if (!existing) {
           existing = { key: currentKey, label: seg, children: [] };
           currentChildren.push(existing);
         }
         currentChildren = existing.children;
+        ancestorKeys.push(currentKey);
       }
 
-      // 最后一段 = 叶子节点（每条请求各一个叶子）
       const lastSeg = segments[segments.length - 1] || fullPath;
       if (records.length === 1) {
         currentChildren.push({
-          key: records[0].id,
-          label: lastSeg,
-          children: [],
-          record: records[0],
+          key: records[0].id, label: lastSeg, children: [], record: records[0],
         });
+        ancestorMap.set(records[0].id, [...ancestorKeys]);
       } else {
-        // 同路径多条请求：加一个路径文件夹，下面挂各条请求
         for (const rec of records) {
-          const ts = new Date(rec.timestamp).toLocaleTimeString('zh-CN', {
-            hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 2,
-          } as Intl.DateTimeFormatOptions);
+          const query = new URL(rec.url).search.slice(1).slice(0, 30);
           currentChildren.push({
             key: rec.id,
-            label: `${lastSeg.split('?')[0]}?${new URL(rec.url).search.slice(1).slice(0, 30)}...`,
-            children: [],
-            record: rec,
+            label: `${lastSeg.split('?')[0]}?${query}...`,
+            children: [], record: rec,
           });
+          ancestorMap.set(rec.id, [...ancestorKeys]);
         }
       }
     }
@@ -97,7 +84,7 @@ function buildTree(requests: RequestRecord[]): TreeNode[] {
     roots.push(domainNode);
   }
 
-  return roots;
+  return { tree: roots, ancestorMap };
 }
 
 /** 单个树节点 */
@@ -107,73 +94,79 @@ const TreeNodeItem: React.FC<{
   expandedKeys: Set<string>;
   toggleExpand: (key: string) => void;
   activeId: string | null;
+  diffLeftId: string | null;
   onSelect: (record: RequestRecord) => void;
-}> = ({ node, depth, expandedKeys, toggleExpand, activeId, onSelect }) => {
+  onContextMenu?: (e: React.MouseEvent, record: RequestRecord) => void;
+}> = ({ node, depth, expandedKeys, toggleExpand, activeId, diffLeftId, onSelect, onContextMenu }) => {
   const isLeaf = !!node.record;
   const isExpanded = expandedKeys.has(node.key);
   const isActive = isLeaf && node.record?.id === activeId;
+  const isDiffLeft = isLeaf && node.record?.id === diffLeftId;
   const hasChildren = node.children.length > 0;
+  const nodeRef = useRef<HTMLDivElement>(null);
+
+  // 选中时滚动到可视区域
+  useEffect(() => {
+    if (isActive && nodeRef.current) {
+      nodeRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [isActive]);
 
   const handleClick = () => {
-    if (isLeaf && node.record) {
-      onSelect(node.record);
-    } else {
-      toggleExpand(node.key);
-    }
+    if (isLeaf && node.record) onSelect(node.record);
+    else toggleExpand(node.key);
+  };
+
+  const handleCtxMenu = (e: React.MouseEvent) => {
+    if (isLeaf && node.record && onContextMenu) onContextMenu(e, node.record);
+  };
+
+  const getBg = () => {
+    if (isActive) return '#e6f4ff';
+    if (isDiffLeft) return '#fff7e6';
+    return 'transparent';
   };
 
   return (
     <>
       <div
+        ref={nodeRef}
         onClick={handleClick}
+        onContextMenu={handleCtxMenu}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          paddingLeft: depth * 16 + 8,
-          paddingRight: 8,
-          height: 26,
-          cursor: 'pointer',
-          fontSize: 12,
+          display: 'flex', alignItems: 'center',
+          paddingLeft: depth * 16 + 8, paddingRight: 8,
+          height: 26, cursor: 'pointer', fontSize: 12,
           color: isLeaf ? '#333' : '#555',
           fontWeight: node.isDomain ? 600 : 'normal',
-          background: isActive ? '#e6f4ff' : 'transparent',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+          background: getBg(),
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           borderBottom: '1px solid #f5f5f5',
         }}
         onMouseEnter={(e) => {
-          if (!isActive) e.currentTarget.style.background = '#fafafa';
+          if (!isActive && !isDiffLeft) e.currentTarget.style.background = '#fafafa';
         }}
-        onMouseLeave={(e) => {
-          if (!isActive) e.currentTarget.style.background = 'transparent';
-        }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = getBg(); }}
         title={isLeaf ? node.record?.url : node.label}
       >
-        {/* 展开/折叠图标 */}
         {!isLeaf && hasChildren ? (
           <span style={{
-            display: 'inline-block',
-            width: 16,
-            textAlign: 'center',
-            flexShrink: 0,
-            color: '#999',
-            fontSize: 10,
-            transition: 'transform 0.15s',
+            display: 'inline-block', width: 16, textAlign: 'center', flexShrink: 0,
+            color: '#999', fontSize: 10, transition: 'transform 0.15s',
             transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-          }}>
-            ▶
-          </span>
+          }}>▶</span>
         ) : (
           <span style={{ display: 'inline-block', width: 16, flexShrink: 0 }} />
         )}
 
-        {/* 域名图标 */}
         {node.isDomain && (
           <span style={{ marginRight: 4, color: '#52c41a', fontSize: 11 }}>⊕</span>
         )}
 
-        {/* 叶子节点选中标记 */}
+        {isDiffLeft && (
+          <span style={{ marginRight: 4, color: '#fa8c16', fontSize: 10, fontWeight: 700 }}>A</span>
+        )}
+
         {isLeaf && isActive && (
           <span style={{ marginRight: 4, color: '#1677ff', fontSize: 10, fontWeight: 700 }}>{'>'}</span>
         )}
@@ -183,34 +176,67 @@ const TreeNodeItem: React.FC<{
         </span>
       </div>
 
-      {/* 子节点 */}
       {isExpanded && node.children.map((child) => (
         <TreeNodeItem
-          key={child.key}
-          node={child}
-          depth={depth + 1}
-          expandedKeys={expandedKeys}
-          toggleExpand={toggleExpand}
-          activeId={activeId}
-          onSelect={onSelect}
+          key={child.key} node={child} depth={depth + 1}
+          expandedKeys={expandedKeys} toggleExpand={toggleExpand}
+          activeId={activeId} diffLeftId={diffLeftId}
+          onSelect={onSelect} onContextMenu={onContextMenu}
         />
       ))}
     </>
   );
 };
 
-const RequestTree: React.FC<{ requests: RequestRecord[] }> = ({ requests }) => {
+const RequestTree: React.FC<{
+  requests: RequestRecord[];
+  onContextMenu?: (e: React.MouseEvent, record: RequestRecord) => void;
+}> = ({ requests, onContextMenu }) => {
   const setActiveRequest = useRequestStore((s) => s.setActiveRequest);
   const activeRequest = useRequestStore((s) => s.activeRequest);
+  const diffPair = useRequestStore((s) => s.diffPair);
 
-  const tree = useMemo(() => buildTree(requests), [requests]);
+  const { tree, ancestorMap } = useMemo(() => buildTree(requests), [requests]);
 
-  // 默认展开所有域名节点
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => {
     const keys = new Set<string>();
     tree.forEach((n) => keys.add(n.key));
     return keys;
   });
+
+  // 当 activeRequest 变化时，自动展开其所有祖先节点
+  useEffect(() => {
+    if (!activeRequest) return;
+    const ancestors = ancestorMap.get(activeRequest.id);
+    if (!ancestors || ancestors.length === 0) return;
+
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const key of ancestors) {
+        if (!next.has(key)) {
+          next.add(key);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [activeRequest, ancestorMap]);
+
+  // 树结构变化时，确保新域名默认展开
+  useEffect(() => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const node of tree) {
+        if (!next.has(node.key)) {
+          next.add(node.key);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [tree]);
 
   const toggleExpand = useCallback((key: string) => {
     setExpandedKeys((prev) => {
@@ -229,13 +255,11 @@ const RequestTree: React.FC<{ requests: RequestRecord[] }> = ({ requests }) => {
     <div style={{ overflow: 'auto', height: '100%' }}>
       {tree.map((node) => (
         <TreeNodeItem
-          key={node.key}
-          node={node}
-          depth={0}
-          expandedKeys={expandedKeys}
-          toggleExpand={toggleExpand}
+          key={node.key} node={node} depth={0}
+          expandedKeys={expandedKeys} toggleExpand={toggleExpand}
           activeId={activeRequest?.id || null}
-          onSelect={handleSelect}
+          diffLeftId={diffPair.left?.id || null}
+          onSelect={handleSelect} onContextMenu={onContextMenu}
         />
       ))}
       {tree.length === 0 && (

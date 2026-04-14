@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Tabs, Button, Space, Descriptions, Tag, message } from 'antd';
+import { Tabs, Button, Space, Descriptions, Tag, Tooltip, message } from 'antd';
 import {
   EditOutlined,
   SendOutlined,
   StarOutlined,
   StarFilled,
+  SwapOutlined,
+  DiffOutlined,
 } from '@ant-design/icons';
 import JsonViewer from './JsonViewer';
 import { useRequestStore } from '../stores/requestStore';
@@ -54,6 +56,17 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
+/** 截断 URL 简短显示 */
+function truncateUrlShort(url: string, max = 30): string {
+  try {
+    const u = new URL(url);
+    const p = u.pathname;
+    return p.length > max ? p.slice(0, max) + '...' : p;
+  } catch {
+    return url.length > max ? url.slice(0, max) + '...' : url;
+  }
+}
+
 /** 格式化时间 */
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleString('zh-CN', {
@@ -94,6 +107,9 @@ const OverviewTab: React.FC<{ record: RequestRecord }> = ({ record }) => (
 const RequestDetail: React.FC = () => {
   const activeRequest = useRequestStore((s) => s.activeRequest);
   const setView = useRequestStore((s) => s.setView);
+  const diffPair = useRequestStore((s) => s.diffPair);
+  const setDiffLeft = useRequestStore((s) => s.setDiffLeft);
+  const setDiffRight = useRequestStore((s) => s.setDiffRight);
   const [replaying, setReplaying] = useState(false);
   const [favorited, setFavorited] = useState(false);
 
@@ -203,6 +219,31 @@ const RequestDetail: React.FC = () => {
           </span>
         </div>
         <Space size={4} style={{ flexShrink: 0 }}>
+          <Tooltip title={diffPair.left ? `Diff A 已设: ${truncateUrlShort(diffPair.left.url)}` : '标记为 Diff 基准 (A)'}>
+            <Button
+              size="small"
+              icon={<DiffOutlined />}
+              type={diffPair.left?.id === record.id ? 'primary' : 'default'}
+              onClick={() => {
+                setDiffLeft(record);
+                message.success('已设为 Diff A（基准）');
+              }}
+            >
+              Diff A
+            </Button>
+          </Tooltip>
+          <Tooltip title={diffPair.left ? '设为 Diff B 并比较' : '请先标记 Diff A'}>
+            <Button
+              size="small"
+              icon={<SwapOutlined />}
+              disabled={!diffPair.left || diffPair.left.id === record.id}
+              onClick={() => {
+                setDiffRight(record);
+              }}
+            >
+              Diff B
+            </Button>
+          </Tooltip>
           <Button size="small" icon={<EditOutlined />} onClick={handleEdit}>
             编辑
           </Button>
@@ -227,7 +268,7 @@ const RequestDetail: React.FC = () => {
 
       {/* Tab 内容区 */}
       <div style={{ flex: 1, overflow: 'auto', padding: '0 12px' }}>
-        <Tabs defaultActiveKey="overview" items={tabItems} size="small" />
+        <Tabs defaultActiveKey="responseBody" items={tabItems} size="small" />
       </div>
     </div>
   );
