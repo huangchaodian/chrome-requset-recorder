@@ -2,7 +2,7 @@ import React, { useEffect, useCallback } from 'react';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import FilterBar from './components/FilterBar';
-import RequestList from './components/RequestList';
+import SidePanel from './components/SidePanel';
 import RequestDetail from './components/RequestDetail';
 import RequestEditor from './components/RequestEditor';
 import DiffViewer from './components/DiffViewer';
@@ -20,7 +20,6 @@ const App: React.FC = () => {
   const addRequest = useRequestStore((s) => s.addRequest);
   const updateResponseBody = useRequestStore((s) => s.updateResponseBody);
   const view = useRequestStore((s) => s.view);
-  const setView = useRequestStore((s) => s.setView);
   const setSettings = useSettingsStore((s) => s.setSettings);
   const { getRequests } = useMessageBridge();
 
@@ -60,13 +59,9 @@ const App: React.FC = () => {
     return () => chrome.runtime.onMessage.removeListener(handler);
   }, [updateResponseBody]);
 
-  // 视图路由
-  const renderView = () => {
+  // 右侧内容区：根据视图状态渲染
+  const renderRightPanel = () => {
     switch (view) {
-      case 'list':
-        return <RequestList />;
-      case 'detail':
-        return <RequestDetail />;
       case 'edit':
         return <RequestEditor />;
       case 'compare':
@@ -74,15 +69,28 @@ const App: React.FC = () => {
       case 'favorites':
         return <FavoriteList />;
       default:
-        return <RequestList />;
+        return <RequestDetail />;
     }
   };
 
   return (
     <ConfigProvider locale={zhCN}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        {/* 顶部过滤栏 */}
         <FilterBar />
-        {renderView()}
+
+        {/* 左右分栏 */}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          {/* 左侧面板：20% */}
+          <div style={{ width: '20%', minWidth: 200, maxWidth: 360, flexShrink: 0, overflow: 'hidden' }}>
+            <SidePanel />
+          </div>
+
+          {/* 右侧内容区：80% */}
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            {renderRightPanel()}
+          </div>
+        </div>
       </div>
     </ConfigProvider>
   );

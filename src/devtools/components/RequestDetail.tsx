@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Tabs, Button, Space, Descriptions, Tag, message } from 'antd';
 import {
-  ArrowLeftOutlined,
   EditOutlined,
   SendOutlined,
   StarOutlined,
@@ -100,20 +99,13 @@ const RequestDetail: React.FC = () => {
 
   if (!activeRequest) {
     return (
-      <div style={{ padding: 24, textAlign: 'center', color: '#8c8c8c' }}>
-        未选中请求
-        <br />
-        <Button type="link" onClick={() => setView('list')}>返回列表</Button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#bfbfbf', fontSize: 13 }}>
+        从左侧选择一条请求查看详情
       </div>
     );
   }
 
   const record = activeRequest;
-
-  /** 返回列表 */
-  const handleBack = () => {
-    setView('list');
-  };
 
   /** 编辑请求 */
   const handleEdit = () => {
@@ -193,7 +185,6 @@ const RequestDetail: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-          <Button type="text" icon={<ArrowLeftOutlined />} onClick={handleBack} size="small" />
           <Tag color="blue" style={{ flexShrink: 0 }}>{record.method}</Tag>
           <Tag color={getStatusColor(record.responseStatus)} style={{ flexShrink: 0 }}>
             {record.responseStatus}

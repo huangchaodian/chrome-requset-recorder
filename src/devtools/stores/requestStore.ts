@@ -41,7 +41,7 @@ export const useRequestStore = create<RequestStoreState>((set) => ({
   requests: [],
   selectedIds: [],
   activeRequest: null,
-  view: 'list',
+  view: 'detail',
   filters: { keyword: '', methods: [], statusRange: [] },
 
   setRequests: (requests) => set({ requests }),
