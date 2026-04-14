@@ -40,6 +40,51 @@ function chromeExtensionBuild(): Plugin {
         },
       });
 
+      // ①-b 构建 content scripts 为 IIFE
+      // interceptor.js（运行在 MAIN world）
+      await build({
+        configFile: false,
+        build: {
+          outDir: resolve(__dirname, 'dist/content'),
+          emptyOutDir: false,
+          lib: {
+            entry: resolve(__dirname, 'src/content/interceptor.ts'),
+            formats: ['iife'],
+            name: 'interceptor',
+            fileName: () => 'interceptor.js',
+          },
+          minify: 'esbuild',
+        },
+        resolve: {
+          alias: {
+            '@': resolve(__dirname, 'src'),
+            '@shared': resolve(__dirname, 'src/shared'),
+          },
+        },
+      });
+
+      // bridge.js（运行在 ISOLATED world）
+      await build({
+        configFile: false,
+        build: {
+          outDir: resolve(__dirname, 'dist/content'),
+          emptyOutDir: false,
+          lib: {
+            entry: resolve(__dirname, 'src/content/bridge.ts'),
+            formats: ['iife'],
+            name: 'bridge',
+            fileName: () => 'bridge.js',
+          },
+          minify: 'esbuild',
+        },
+        resolve: {
+          alias: {
+            '@': resolve(__dirname, 'src'),
+            '@shared': resolve(__dirname, 'src/shared'),
+          },
+        },
+      });
+
       // ② 复制 manifest.json 并修正路径
       const manifest = JSON.parse(
         readFileSync(resolve(__dirname, 'manifest.json'), 'utf-8')

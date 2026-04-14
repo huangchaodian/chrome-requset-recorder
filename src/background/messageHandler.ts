@@ -141,6 +141,7 @@ async function handleMessage(
           method: string;
           responseBody: string;
         };
+        console.log('[Request Recorder] Updating response body ', responseBody);
         const updatedId = requestStore.updateResponseBody(url, method, responseBody);
         if (updatedId) {
           // 广播给 panel 更新 UI
