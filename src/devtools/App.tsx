@@ -18,6 +18,7 @@ import './styles/global.css';
 const App: React.FC = () => {
   const setRequests = useRequestStore((s) => s.setRequests);
   const addRequest = useRequestStore((s) => s.addRequest);
+  const updateResponseBody = useRequestStore((s) => s.updateResponseBody);
   const view = useRequestStore((s) => s.view);
   const setView = useRequestStore((s) => s.setView);
   const setSettings = useSettingsStore((s) => s.setSettings);
@@ -47,6 +48,17 @@ const App: React.FC = () => {
     [addRequest]
   );
   useNewRequestListener(handleNewRequest);
+
+  // 监听来自 background 的响应体更新广播
+  useEffect(() => {
+    const handler = (message: { type: string; payload: { id: string; responseBody: string } }) => {
+      if (message.type === 'RESPONSE_BODY_UPDATED') {
+        updateResponseBody(message.payload.id, message.payload.responseBody);
+      }
+    };
+    chrome.runtime.onMessage.addListener(handler);
+    return () => chrome.runtime.onMessage.removeListener(handler);
+  }, [updateResponseBody]);
 
   // 视图路由
   const renderView = () => {

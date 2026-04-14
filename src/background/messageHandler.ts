@@ -135,6 +135,24 @@ async function handleMessage(
         break;
       }
 
+      case MessageType.UPDATE_RESPONSE_BODY: {
+        const { url, method, responseBody } = message.payload as {
+          url: string;
+          method: string;
+          responseBody: string;
+        };
+        const updatedId = requestStore.updateResponseBody(url, method, responseBody);
+        if (updatedId) {
+          // 广播给 panel 更新 UI
+          chrome.runtime.sendMessage({
+            type: 'RESPONSE_BODY_UPDATED',
+            payload: { id: updatedId, responseBody },
+          }).catch(() => {});
+        }
+        sendResponse({ success: true });
+        break;
+      }
+
       default: {
         sendResponse({ success: false, error: `Unknown message type: ${message.type}` });
         break;

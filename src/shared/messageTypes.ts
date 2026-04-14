@@ -21,6 +21,9 @@ export enum MessageType {
   REMOVE_FAVORITE = 'REMOVE_FAVORITE',
   UPDATE_FAVORITE = 'UPDATE_FAVORITE',
 
+  // 响应体更新
+  UPDATE_RESPONSE_BODY = 'UPDATE_RESPONSE_BODY',
+
   // 设置相关
   GET_SETTINGS = 'GET_SETTINGS',
   UPDATE_SETTINGS = 'UPDATE_SETTINGS',
@@ -39,6 +42,7 @@ export interface MessagePayloadMap {
   [MessageType.ADD_FAVORITE]: { request: RequestRecord; alias?: string; note?: string };
   [MessageType.REMOVE_FAVORITE]: { id: string };
   [MessageType.UPDATE_FAVORITE]: { id: string; alias?: string; note?: string };
+  [MessageType.UPDATE_RESPONSE_BODY]: { url: string; method: string; responseBody: string };
   [MessageType.GET_SETTINGS]: void;
   [MessageType.UPDATE_SETTINGS]: Partial<Settings>;
 }
@@ -56,6 +60,7 @@ export interface MessageResponseMap {
   [MessageType.ADD_FAVORITE]: FavoriteRecord;
   [MessageType.REMOVE_FAVORITE]: void;
   [MessageType.UPDATE_FAVORITE]: FavoriteRecord;
+  [MessageType.UPDATE_RESPONSE_BODY]: void;
   [MessageType.GET_SETTINGS]: Settings;
   [MessageType.UPDATE_SETTINGS]: Settings;
 }

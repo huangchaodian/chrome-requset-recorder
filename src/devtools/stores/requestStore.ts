@@ -33,6 +33,8 @@ interface RequestStoreState {
   setView: (view: RequestStoreState['view']) => void;
   /** 设置过滤条件 */
   setFilters: (filters: Partial<FilterOptions>) => void;
+  /** 通过 ID 更新指定请求的响应体 */
+  updateResponseBody: (id: string, responseBody: string) => void;
 }
 
 export const useRequestStore = create<RequestStoreState>((set) => ({
@@ -83,4 +85,17 @@ export const useRequestStore = create<RequestStoreState>((set) => ({
 
   setFilters: (filters) =>
     set((state) => ({ filters: { ...state.filters, ...filters } })),
+
+  updateResponseBody: (id, responseBody) =>
+    set((state) => {
+      const idx = state.requests.findIndex((r) => r.id === id);
+      if (idx === -1) return {};
+      const requests = [...state.requests];
+      requests[idx] = { ...requests[idx], responseBody };
+      const activeRequest =
+        state.activeRequest?.id === id
+          ? { ...state.activeRequest, responseBody }
+          : state.activeRequest;
+      return { requests, activeRequest };
+    }),
 }));

@@ -83,6 +83,19 @@ class RequestStore {
     this.isRecording = enabled;
   }
 
+  /** 通过 URL 和方法匹配更新响应体，返回匹配到的记录 ID */
+  updateResponseBody(url: string, method: string, responseBody: string): string | null {
+    // 从后往前找，匹配最近的无响应体记录
+    for (let i = this.records.length - 1; i >= 0; i--) {
+      const record = this.records[i];
+      if (record.url === url && record.method === method && !record.responseBody) {
+        record.responseBody = responseBody;
+        return record.id;
+      }
+    }
+    return null;
+  }
+
   /** 导出所有数据（用于备份） */
   exportData(): RequestRecord[] {
     return [...this.records];
