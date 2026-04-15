@@ -9,13 +9,14 @@ import {
   DiffOutlined,
 } from '@ant-design/icons';
 import JsonViewer, { JsonViewerToolbar } from './JsonViewer';
+import HighlightText from './HighlightText';
 import { useRequestStore } from '../stores/requestStore';
 import { sendMessage } from '../hooks/useMessageBridge';
 import { MessageType } from '../../shared/messageTypes';
 import type { RequestRecord, ReplayResult, FavoriteRecord } from '../../shared/types';
 
 /** 请求头表格渲染 */
-const HeadersTable: React.FC<{ headers: { name: string; value: string }[] }> = ({ headers }) => {
+const HeadersTable: React.FC<{ headers: { name: string; value: string }[]; keyword?: string }> = ({ headers, keyword }) => {
   if (!headers || headers.length === 0) {
     return <div style={{ padding: 12, color: '#8c8c8c' }}>(无请求头)</div>;
   }
@@ -31,9 +32,11 @@ const HeadersTable: React.FC<{ headers: { name: string; value: string }[] }> = (
         {headers.map((h, i) => (
           <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
             <td style={{ padding: '4px 12px', fontWeight: 500, color: '#722ed1', wordBreak: 'break-all' }}>
-              {h.name}
+              <HighlightText text={h.name} keyword={keyword} />
             </td>
-            <td style={{ padding: '4px 12px', wordBreak: 'break-all' }}>{h.value}</td>
+            <td style={{ padding: '4px 12px', wordBreak: 'break-all' }}>
+              <HighlightText text={h.value} keyword={keyword} />
+            </td>
           </tr>
         ))}
       </tbody>
@@ -76,11 +79,11 @@ function formatTime(ts: number): string {
 }
 
 /** 概览 Tab */
-const OverviewTab: React.FC<{ record: RequestRecord }> = ({ record }) => (
+const OverviewTab: React.FC<{ record: RequestRecord; keyword?: string }> = ({ record, keyword }) => (
   <div style={{ padding: '12px 0' }}>
     <Descriptions column={1} size="small" bordered>
       <Descriptions.Item label="URL">
-        <span style={{ wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12 }}>{record.url}</span>
+        <HighlightText text={record.url} keyword={keyword} style={{ wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12 }} />
       </Descriptions.Item>
       <Descriptions.Item label="方法">
         <Tag color="blue">{record.method}</Tag>
@@ -110,6 +113,7 @@ const RequestDetail: React.FC = () => {
   const diffPair = useRequestStore((s) => s.diffPair);
   const setDiffLeft = useRequestStore((s) => s.setDiffLeft);
   const setDiffRight = useRequestStore((s) => s.setDiffRight);
+  const keyword = useRequestStore((s) => s.filters.keyword);
   const [replaying, setReplaying] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [reqTabKey, setReqTabKey] = useState('requestBody');
@@ -166,17 +170,17 @@ const RequestDetail: React.FC = () => {
     {
       key: 'overview',
       label: '概览',
-      children: <OverviewTab record={record} />,
+      children: <OverviewTab record={record} keyword={keyword} />,
     },
     {
       key: 'requestHeaders',
       label: `请求头 (${record.requestHeaders?.length || 0})`,
-      children: <HeadersTable headers={record.requestHeaders || []} />,
+      children: <HeadersTable headers={record.requestHeaders || []} keyword={keyword} />,
     },
     {
       key: 'requestBody',
       label: '请求体',
-      children: <JsonViewer data={record.requestBody} maxHeight={800} hideToolbar rawMode={reqBodyRawMode} onRawModeChange={setReqBodyRawMode} />,
+      children: <JsonViewer data={record.requestBody} maxHeight={800} hideToolbar rawMode={reqBodyRawMode} onRawModeChange={setReqBodyRawMode} keyword={keyword} />,
     },
   ];
 
@@ -184,12 +188,12 @@ const RequestDetail: React.FC = () => {
     {
       key: 'responseHeaders',
       label: `响应头 (${record.responseHeaders?.length || 0})`,
-      children: <HeadersTable headers={record.responseHeaders || []} />,
+      children: <HeadersTable headers={record.responseHeaders || []} keyword={keyword} />,
     },
     {
       key: 'responseBody',
       label: '响应体',
-      children: <JsonViewer data={record.responseBody} maxHeight="66vh" hideToolbar rawMode={resBodyRawMode} onRawModeChange={setResBodyRawMode} />,
+      children: <JsonViewer data={record.responseBody} maxHeight="66vh" hideToolbar rawMode={resBodyRawMode} onRawModeChange={setResBodyRawMode} keyword={keyword} />,
     },
   ];
 
@@ -222,7 +226,7 @@ const RequestDetail: React.FC = () => {
             }}
             title={record.url}
           >
-            {record.url}
+            <HighlightText text={record.url} keyword={keyword} />
           </span>
         </div>
         <Space size={4} style={{ flexShrink: 0 }}>

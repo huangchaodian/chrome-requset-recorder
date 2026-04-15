@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import type { RequestRecord } from '../../shared/types';
 import { useRequestStore } from '../stores/requestStore';
+import HighlightText from './HighlightText';
 
 /** 树节点结构 */
 interface TreeNode {
@@ -95,9 +96,10 @@ const TreeNodeItem: React.FC<{
   toggleExpand: (key: string) => void;
   activeId: string | null;
   diffLeftId: string | null;
+  keyword?: string;
   onSelect: (record: RequestRecord) => void;
   onContextMenu?: (e: React.MouseEvent, record: RequestRecord) => void;
-}> = ({ node, depth, expandedKeys, toggleExpand, activeId, diffLeftId, onSelect, onContextMenu }) => {
+}> = ({ node, depth, expandedKeys, toggleExpand, activeId, diffLeftId, keyword, onSelect, onContextMenu }) => {
   const isLeaf = !!node.record;
   const isExpanded = expandedKeys.has(node.key);
   const isActive = isLeaf && node.record?.id === activeId;
@@ -172,7 +174,7 @@ const TreeNodeItem: React.FC<{
         )}
 
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {node.label}
+          {isLeaf ? <HighlightText text={node.label} keyword={keyword} /> : node.label}
         </span>
       </div>
 
@@ -181,6 +183,7 @@ const TreeNodeItem: React.FC<{
           key={child.key} node={child} depth={depth + 1}
           expandedKeys={expandedKeys} toggleExpand={toggleExpand}
           activeId={activeId} diffLeftId={diffLeftId}
+          keyword={keyword}
           onSelect={onSelect} onContextMenu={onContextMenu}
         />
       ))}
@@ -190,8 +193,9 @@ const TreeNodeItem: React.FC<{
 
 const RequestTree: React.FC<{
   requests: RequestRecord[];
+  keyword?: string;
   onContextMenu?: (e: React.MouseEvent, record: RequestRecord) => void;
-}> = ({ requests, onContextMenu }) => {
+}> = ({ requests, keyword, onContextMenu }) => {
   const setActiveRequest = useRequestStore((s) => s.setActiveRequest);
   const activeRequest = useRequestStore((s) => s.activeRequest);
   const diffPair = useRequestStore((s) => s.diffPair);
@@ -259,6 +263,7 @@ const RequestTree: React.FC<{
           expandedKeys={expandedKeys} toggleExpand={toggleExpand}
           activeId={activeRequest?.id || null}
           diffLeftId={diffPair.left?.id || null}
+          keyword={keyword}
           onSelect={handleSelect} onContextMenu={onContextMenu}
         />
       ))}

@@ -82,7 +82,7 @@ const FilterBar: React.FC = () => {
 
       {/* 搜索框 */}
       <Input
-        placeholder="搜索 URL..."
+        placeholder="搜索 URL/请求体/响应体..."
         prefix={<SearchOutlined />}
         size="small"
         allowClear

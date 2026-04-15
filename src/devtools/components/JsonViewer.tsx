@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Button, Space } from 'antd';
 import { CopyOutlined, CheckOutlined } from '@ant-design/icons';
+import HighlightText from './HighlightText';
 
 interface JsonViewerProps {
   data: string | null;
@@ -11,6 +12,8 @@ interface JsonViewerProps {
   rawMode?: boolean;
   /** raw 模式切换回调 */
   onRawModeChange?: (raw: boolean) => void;
+  /** 搜索关键字，匹配位置标红 */
+  keyword?: string;
 }
 
 /** 尝试解析并格式化 JSON */
@@ -24,10 +27,11 @@ function tryParseJson(text: string): { parsed: unknown; isJson: boolean } {
 }
 
 /** 递归渲染 JSON 节点 */
-const JsonNode: React.FC<{ data: unknown; depth: number; keyName?: string }> = ({
+const JsonNode: React.FC<{ data: unknown; depth: number; keyName?: string; keyword?: string }> = ({
   data,
   depth,
   keyName,
+  keyword,
 }) => {
   const [collapsed, setCollapsed] = useState(depth > 2);
   const indent = depth * 16;
@@ -67,7 +71,7 @@ const JsonNode: React.FC<{ data: unknown; depth: number; keyName?: string }> = (
       <div style={{ paddingLeft: indent }}>
         {keyName !== undefined && <span style={{ color: '#a31515' }}>"{keyName}"</span>}
         {keyName !== undefined && ': '}
-        <span style={{ color: '#a31515' }}>"{data}"</span>
+        <span style={{ color: '#a31515' }}>"<HighlightText text={data} keyword={keyword} />"</span>
       </div>
     );
   }
@@ -95,7 +99,7 @@ const JsonNode: React.FC<{ data: unknown; depth: number; keyName?: string }> = (
         {!collapsed && (
           <>
             {data.map((item, i) => (
-              <JsonNode key={i} data={item} depth={depth + 1} />
+              <JsonNode key={i} data={item} depth={depth + 1} keyword={keyword} />
             ))}
             <div style={{ paddingLeft: indent }}>]</div>
           </>
@@ -128,7 +132,7 @@ const JsonNode: React.FC<{ data: unknown; depth: number; keyName?: string }> = (
         {!collapsed && (
           <>
             {entries.map(([key, value]) => (
-              <JsonNode key={key} data={value} depth={depth + 1} keyName={key} />
+              <JsonNode key={key} data={value} depth={depth + 1} keyName={key} keyword={keyword} />
             ))}
             <div style={{ paddingLeft: indent }}>{'}'}</div>
           </>
@@ -146,6 +150,7 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
   hideToolbar = false,
   rawMode: rawModeProp,
   onRawModeChange,
+  keyword,
 }) => {
   const [rawModeInternal, setRawModeInternal] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -198,9 +203,11 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
         }}
       >
         {isJson && !rawMode ? (
-          <JsonNode data={parsed} depth={0} />
+          <JsonNode data={parsed} depth={0} keyword={keyword} />
         ) : (
-          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{data}</pre>
+          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            <HighlightText text={data} keyword={keyword} />
+          </pre>
         )}
       </div>
     </div>

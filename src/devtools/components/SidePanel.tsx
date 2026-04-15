@@ -3,6 +3,7 @@ import { Tooltip } from 'antd';
 import { UnorderedListOutlined, ApartmentOutlined } from '@ant-design/icons';
 import RequestTree from './RequestTree';
 import ContextMenu from './ContextMenu';
+import HighlightText from './HighlightText';
 import { useRequestStore } from '../stores/requestStore';
 import type { RequestRecord } from '../../shared/types';
 
@@ -42,7 +43,17 @@ const SidePanel: React.FC = () => {
 
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
-      if (filters.keyword && !r.url.toLowerCase().includes(filters.keyword.toLowerCase())) return false;
+      if (filters.keyword) {
+        const kw = filters.keyword.toLowerCase();
+        const headersToStr = (headers: { name: string; value: string }[]) =>
+          headers.map((h) => `${h.name}: ${h.value}`).join('\n').toLowerCase();
+        const matchUrl = r.url.toLowerCase().includes(kw);
+        const matchReqHeaders = r.requestHeaders?.length > 0 && headersToStr(r.requestHeaders).includes(kw);
+        const matchReqBody = r.requestBody?.toLowerCase().includes(kw);
+        const matchResHeaders = r.responseHeaders?.length > 0 && headersToStr(r.responseHeaders).includes(kw);
+        const matchResBody = r.responseBody?.toLowerCase().includes(kw);
+        if (!matchUrl && !matchReqHeaders && !matchReqBody && !matchResHeaders && !matchResBody) return false;
+      }
       if (filters.methods.length > 0 && !filters.methods.includes(r.method.toUpperCase())) return false;
       if (!matchStatusRange(r.responseStatus, filters.statusRange)) return false;
       return true;
@@ -102,7 +113,7 @@ const SidePanel: React.FC = () => {
       {/* 内容区 */}
       <div style={{ flex: 1, overflow: 'auto' }}>
         {mode === 'tree' ? (
-          <RequestTree requests={filteredRequests} onContextMenu={handleContextMenu} />
+          <RequestTree requests={filteredRequests} keyword={filters.keyword} onContextMenu={handleContextMenu} />
         ) : (
           filteredRequests.map((r) => (
             <div
@@ -123,7 +134,7 @@ const SidePanel: React.FC = () => {
               {diffPair.left?.id === r.id && <span style={{ color: '#fa8c16', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>A</span>}
               <span style={{ color: '#1677ff', fontWeight: 500, fontSize: 11, width: 36, flexShrink: 0 }}>{r.method}</span>
               <span style={{ color: r.responseStatus >= 400 ? '#f5222d' : '#52c41a', width: 28, flexShrink: 0, fontSize: 11 }}>{r.responseStatus}</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateUrl(r.url)}</span>
+              <HighlightText text={truncateUrl(r.url)} keyword={filters.keyword} style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} />
             </div>
           ))
         )}
