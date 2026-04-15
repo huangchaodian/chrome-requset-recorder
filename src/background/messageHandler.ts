@@ -137,13 +137,14 @@ async function handleMessage(
       }
 
       case MessageType.UPDATE_RESPONSE_BODY: {
-        const { url, method, responseBody } = message.payload as {
+        const { url, method, responseBody, mappedUrl } = message.payload as {
           url: string;
           method: string;
           responseBody: string;
+          mappedUrl?: string;
         };
-        console.log('[Request Recorder] Updating response body ', responseBody);
-        const updatedId = requestStore.updateResponseBody(url, method, responseBody);
+        console.log('[Request Recorder] Updating response body ', responseBody.slice(0, 100));
+        const updatedId = requestStore.updateResponseBody(url, method, responseBody, mappedUrl);
         if (updatedId) {
           // 广播给 panel 更新 UI
           chrome.runtime.sendMessage({

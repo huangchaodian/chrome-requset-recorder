@@ -90,10 +90,10 @@ function safeReadBody(response: Response): Promise<string | null> {
   }
 }
 
-function postResponseBody(url: string, method: string, body: string): void {
+function postResponseBody(url: string, method: string, body: string, mappedUrl?: string): void {
   try {
     window.postMessage(
-      { type: RESPONSE_BODY_EVENT, payload: { url, method, responseBody: body } },
+      { type: RESPONSE_BODY_EVENT, payload: { url, method, responseBody: body, mappedUrl } },
       '*'
     );
   } catch { /* ignore */ }
@@ -126,18 +126,25 @@ window.fetch = async function patchedFetch(
 
   // 使用映射后的 URL 发起请求
   let actualInput: RequestInfo | URL = input;
+  let actualInit = init;
   if (mappedUrl !== url) {
     if (input instanceof Request) {
       actualInput = new Request(mappedUrl, input);
     } else {
       actualInput = mappedUrl;
     }
+    // Map Remote 映射的请求移除 credentials，避免 CORS 与 withCredentials 冲突
+    if (actualInit) {
+      actualInit = { ...actualInit, credentials: 'omit' };
+    } else {
+      actualInit = { credentials: 'omit' };
+    }
   }
 
-  const response = await originalFetch.call(this, actualInput, init);
+  const response = await originalFetch.call(this, actualInput, actualInit);
 
   safeReadBody(response).then((body) => {
-    if (body) postResponseBody(url, method, body);
+    if (body) postResponseBody(url, method, body, mappedUrl !== url ? mappedUrl : undefined);
   });
 
   return response;
@@ -147,7 +154,7 @@ window.fetch = async function patchedFetch(
 const originalXHROpen = XMLHttpRequest.prototype.open;
 const originalXHRSend = XMLHttpRequest.prototype.send;
 
-const xhrMeta = new WeakMap<XMLHttpRequest, { method: string; url: string }>();
+const xhrMeta = new WeakMap<XMLHttpRequest, { method: string; url: string; mappedUrl?: string }>();
 
 XMLHttpRequest.prototype.open = function patchedOpen(
   method: string,
@@ -158,18 +165,25 @@ XMLHttpRequest.prototype.open = function patchedOpen(
 ): void {
   const resolvedUrl = resolveUrl(typeof url === 'string' ? url : url.href);
   const mappedUrl = applyMapRemote(resolvedUrl);
+  const isMapped = mappedUrl !== resolvedUrl;
 
   xhrMeta.set(this, {
     method: method.toUpperCase(),
     url: resolvedUrl,
+    mappedUrl: isMapped ? mappedUrl : undefined,
   });
 
   // 使用映射后的 URL 调用原始 open
-  const actualUrl = mappedUrl !== resolvedUrl ? mappedUrl : url;
+  const actualUrl = isMapped ? mappedUrl : url;
   if (async !== undefined) {
     originalXHROpen.call(this, method, actualUrl, async, username ?? null, password ?? null);
   } else {
     (originalXHROpen as Function).call(this, method, actualUrl);
+  }
+
+  // Map Remote 映射的请求禁用 withCredentials，避免 CORS 冲突
+  if (isMapped) {
+    this.withCredentials = false;
   }
 };
 
@@ -183,7 +197,7 @@ XMLHttpRequest.prototype.send = function patchedSend(
     try {
       const responseText = this.responseText;
       if (responseText) {
-        postResponseBody(meta.url, meta.method, responseText);
+        postResponseBody(meta.url, meta.method, responseText, meta.mappedUrl);
       }
     } catch { /* ignore */ }
   });

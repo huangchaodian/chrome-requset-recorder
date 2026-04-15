@@ -12,6 +12,7 @@ interface PendingBody {
   method: string;
   responseBody: string;
   timestamp: number;
+  mappedUrl?: string;
 }
 
 /** 缓冲过期时间：10 秒 */
@@ -102,13 +103,16 @@ class RequestStore {
   }
 
   /** 通过 URL 和方法匹配更新响应体，返回匹配到的记录 ID */
-  updateResponseBody(url: string, method: string, responseBody: string): string | null {
+  updateResponseBody(url: string, method: string, responseBody: string, mappedUrl?: string): string | null {
     // 从后往前找，匹配最近的无响应体记录
     for (let i = this.records.length - 1; i >= 0; i--) {
       const record = this.records[i];
-      if (record.url === url && record.method === method && !record.responseBody) {
-        record.responseBody = responseBody;
-        return record.id;
+      if (record.method === method && !record.responseBody) {
+        // 匹配原始 URL 或映射后的 URL（webRequest 记录的是映射后 URL）
+        if (record.url === url || (mappedUrl && record.url === mappedUrl)) {
+          record.responseBody = responseBody;
+          return record.id;
+        }
       }
     }
 
@@ -118,6 +122,7 @@ class RequestStore {
       method,
       responseBody,
       timestamp: Date.now(),
+      mappedUrl,
     });
 
     // 清理过期的缓冲
@@ -132,7 +137,8 @@ class RequestStore {
 
     for (let i = this.pendingBodies.length - 1; i >= 0; i--) {
       const pending = this.pendingBodies[i];
-      if (pending.url === record.url && pending.method === record.method) {
+      if (pending.method === record.method &&
+          (pending.url === record.url || (pending.mappedUrl && pending.mappedUrl === record.url))) {
         record.responseBody = pending.responseBody;
         this.pendingBodies.splice(i, 1);
 

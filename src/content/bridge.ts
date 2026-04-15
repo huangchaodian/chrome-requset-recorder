@@ -14,10 +14,11 @@ window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   if (!event.data || event.data.type !== RESPONSE_BODY_EVENT) return;
 
-  const { url, method, responseBody } = event.data.payload as {
+  const { url, method, responseBody, mappedUrl } = event.data.payload as {
     url: string;
     method: string;
     responseBody: string;
+    mappedUrl?: string;
   };
 
   if (url.startsWith('chrome-extension://')) return;
@@ -25,7 +26,7 @@ window.addEventListener('message', (event) => {
   chrome.runtime
     .sendMessage({
       type: 'UPDATE_RESPONSE_BODY',
-      payload: { url, method, responseBody },
+      payload: { url, method, responseBody, mappedUrl },
     })
     .catch(() => {});
 });
