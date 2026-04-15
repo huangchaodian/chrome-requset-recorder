@@ -14,7 +14,7 @@ interface RequestStoreState {
   /** 当前查看的请求详情 */
   activeRequest: RequestRecord | null;
   /** 当前视图 */
-  view: 'list' | 'detail' | 'edit' | 'compare' | 'favorites' | 'settings';
+  view: 'list' | 'detail' | 'edit' | 'compare' | 'favorites' | 'settings' | 'mapRemote';
   /** 当前过滤条件 */
   filters: FilterOptions;
   /** Diff 比较对 */

@@ -66,3 +66,33 @@ export interface Settings {
   maxRecords: number;
   isRecordingEnabled: boolean;
 }
+
+/** Map Remote 规则 */
+export interface MapRemoteRule {
+  /** 唯一标识 */
+  id: string;
+  /** 是否启用 */
+  enabled: boolean;
+  /** 来源：协议 */
+  fromProtocol: 'http' | 'https' | '*';
+  /** 来源：主机 */
+  fromHost: string;
+  /** 来源：端口（空字符串表示默认端口） */
+  fromPort: string;
+  /** 来源：路径（空字符串表示匹配所有路径） */
+  fromPath: string;
+  /** 来源：查询字符串 */
+  fromQuery: string;
+  /** 目标：协议 */
+  toProtocol: 'http' | 'https';
+  /** 目标：主机 */
+  toHost: string;
+  /** 目标：端口 */
+  toPort: string;
+  /** 目标：路径（空字符串表示保持原路径） */
+  toPath: string;
+  /** 目标：查询字符串（空字符串表示保持原查询） */
+  toQuery: string;
+  /** 备注 */
+  comment: string;
+}

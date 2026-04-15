@@ -5,6 +5,7 @@
   "description": "录制浏览器中的所有 HTTP/HTTPS 请求，支持比较、修改、重放和收藏",
   "permissions": [
     "webRequest",
+    "declarativeNetRequest",
     "storage",
     "tabs",
     "activeTab"

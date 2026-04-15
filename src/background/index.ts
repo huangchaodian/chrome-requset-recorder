@@ -14,6 +14,7 @@ import {
   getSettings,
   startPeriodicBackup,
 } from './storageManager';
+import { initMapRemote } from './mapRemoteManager';
 
 // ★ 1. 最先同步注册消息处理器（不能放在 async 中）
 setupMessageHandler();
@@ -45,6 +46,9 @@ async function initialize(): Promise<void> {
 
     // 启动定时备份
     startPeriodicBackup(() => requestStore.exportData());
+
+    // 初始化 Map Remote 规则
+    await initMapRemote();
 
     console.log('[Request Recorder] Background Service Worker ready');
   } catch (err) {

@@ -12,4 +12,6 @@ export const STORAGE_KEYS = {
   FAVORITES: 'favorites',
   SETTINGS: 'settings',
   REQUEST_BACKUP: 'request_backup',
+  MAP_REMOTE_RULES: 'map_remote_rules',
+  MAP_REMOTE_ENABLED: 'map_remote_enabled',
 } as const;

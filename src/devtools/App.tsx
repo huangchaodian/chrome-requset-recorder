@@ -7,6 +7,7 @@ import RequestDetail from './components/RequestDetail';
 import RequestEditor from './components/RequestEditor';
 import DiffViewer from './components/DiffViewer';
 import FavoriteList from './components/FavoriteList';
+import MapRemote from './components/MapRemote';
 import { useRequestStore } from './stores/requestStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useMessageBridge, useNewRequestListener } from './hooks/useMessageBridge';
@@ -79,6 +80,8 @@ const App: React.FC = () => {
         return <DiffViewer />;
       case 'favorites':
         return <FavoriteList />;
+      case 'mapRemote':
+        return <MapRemote />;
       default:
         return <RequestDetail />;
     }

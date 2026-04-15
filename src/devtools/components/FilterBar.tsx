@@ -6,6 +6,7 @@ import {
   PauseCircleOutlined,
   PlayCircleOutlined,
   StarOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import { useRequestStore } from '../stores/requestStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -122,6 +123,14 @@ const FilterBar: React.FC = () => {
           onClick={() => setView('favorites')}
         >
           收藏夹
+        </Button>
+        {/* Map Remote */}
+        <Button
+          size="small"
+          icon={<ApiOutlined />}
+          onClick={() => setView('mapRemote')}
+        >
+          Map Remote
         </Button>
         {/* 清空按钮 */}
         <Button

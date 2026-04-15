@@ -1,4 +1,4 @@
-import type { RequestRecord, FavoriteRecord, ReplayResult, Settings } from './types';
+import type { RequestRecord, FavoriteRecord, ReplayResult, Settings, MapRemoteRule } from './types';
 
 /** 消息类型枚举 */
 export enum MessageType {
@@ -27,6 +27,12 @@ export enum MessageType {
   // 设置相关
   GET_SETTINGS = 'GET_SETTINGS',
   UPDATE_SETTINGS = 'UPDATE_SETTINGS',
+
+  // Map Remote 相关
+  GET_MAP_REMOTE_RULES = 'GET_MAP_REMOTE_RULES',
+  SAVE_MAP_REMOTE_RULES = 'SAVE_MAP_REMOTE_RULES',
+  GET_MAP_REMOTE_ENABLED = 'GET_MAP_REMOTE_ENABLED',
+  SET_MAP_REMOTE_ENABLED = 'SET_MAP_REMOTE_ENABLED',
 }
 
 /** 消息体类型定义 */
@@ -45,6 +51,10 @@ export interface MessagePayloadMap {
   [MessageType.UPDATE_RESPONSE_BODY]: { url: string; method: string; responseBody: string };
   [MessageType.GET_SETTINGS]: void;
   [MessageType.UPDATE_SETTINGS]: Partial<Settings>;
+  [MessageType.GET_MAP_REMOTE_RULES]: void;
+  [MessageType.SAVE_MAP_REMOTE_RULES]: MapRemoteRule[];
+  [MessageType.GET_MAP_REMOTE_ENABLED]: void;
+  [MessageType.SET_MAP_REMOTE_ENABLED]: { enabled: boolean };
 }
 
 /** 消息响应类型定义 */
@@ -63,6 +73,10 @@ export interface MessageResponseMap {
   [MessageType.UPDATE_RESPONSE_BODY]: void;
   [MessageType.GET_SETTINGS]: Settings;
   [MessageType.UPDATE_SETTINGS]: Settings;
+  [MessageType.GET_MAP_REMOTE_RULES]: MapRemoteRule[];
+  [MessageType.SAVE_MAP_REMOTE_RULES]: void;
+  [MessageType.GET_MAP_REMOTE_ENABLED]: { enabled: boolean };
+  [MessageType.SET_MAP_REMOTE_ENABLED]: { enabled: boolean };
 }
 
 /** 通用消息格式 */

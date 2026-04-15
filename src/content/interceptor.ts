@@ -1,13 +1,79 @@
 /**
  * Content Script - 页面请求拦截器（运行在 MAIN world）
  *
- * 通过 monkey patch fetch 和 XMLHttpRequest 捕获响应体，
- * 再通过 window.postMessage 发送给同页面的 bridge content script。
+ * 1. monkey patch fetch/XHR 捕获响应体
+ * 2. Map Remote: 在请求发起前重写 URL（避免网络层重定向导致 CORS preflight 失败）
  */
 
 const RESPONSE_BODY_EVENT = '__REQUEST_RECORDER_RESPONSE_BODY__';
+const MAP_REMOTE_RULES_EVENT = '__REQUEST_RECORDER_MAP_REMOTE_RULES__';
 
-/** 将任意 URL 解析为绝对路径（与 webRequest API 记录的 URL 保持一致） */
+// ========== Map Remote 规则 ==========
+interface MapRule {
+  enabled: boolean;
+  fromProtocol: string;
+  fromHost: string;
+  fromPort: string;
+  fromPath: string;
+  toProtocol: string;
+  toHost: string;
+  toPort: string;
+  toPath: string;
+}
+
+let mapRemoteRules: MapRule[] = [];
+
+/** 监听来自 bridge 的规则更新 */
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (!event.data || event.data.type !== MAP_REMOTE_RULES_EVENT) return;
+  const { rules } = event.data.payload;
+  mapRemoteRules = (rules || []).filter((r: MapRule) => r.enabled && r.fromHost && r.toHost);
+});
+
+/** 对 URL 应用 Map Remote 规则，返回重写后的 URL（无匹配则返回原 URL） */
+function applyMapRemote(originalUrl: string): string {
+  if (mapRemoteRules.length === 0) return originalUrl;
+
+  try {
+    const u = new URL(originalUrl);
+
+    for (const rule of mapRemoteRules) {
+      // 匹配协议
+      if (rule.fromProtocol !== '*' && u.protocol !== rule.fromProtocol + ':') continue;
+      // 匹配主机
+      if (u.hostname !== rule.fromHost) continue;
+      // 匹配端口
+      if (rule.fromPort && u.port !== rule.fromPort) continue;
+      // 匹配路径前缀
+      if (rule.fromPath && !u.pathname.startsWith('/' + rule.fromPath)) continue;
+
+      // 命中规则 —— 构建新 URL
+      u.protocol = rule.toProtocol + ':';
+      u.hostname = rule.toHost;
+      u.port = rule.toPort || '';
+
+      if (rule.toPath) {
+        if (rule.fromPath) {
+          u.pathname = '/' + rule.toPath + u.pathname.slice(1 + rule.fromPath.length);
+        } else {
+          u.pathname = '/' + rule.toPath + u.pathname;
+        }
+      }
+
+    
+
+      return u.href;
+    }
+  } catch {
+    // URL 解析失败，返回原值
+  }
+
+  return originalUrl;
+}
+
+// ========== 工具函数 ==========
+
 function resolveUrl(url: string): string {
   try {
     return new URL(url, location.href).href;
@@ -16,7 +82,6 @@ function resolveUrl(url: string): string {
   }
 }
 
-/** 安全地读取 response body */
 function safeReadBody(response: Response): Promise<string | null> {
   try {
     return response.clone().text().catch(() => null);
@@ -25,19 +90,13 @@ function safeReadBody(response: Response): Promise<string | null> {
   }
 }
 
-/** 发送响应体到 bridge script */
 function postResponseBody(url: string, method: string, body: string): void {
   try {
     window.postMessage(
-      {
-        type: RESPONSE_BODY_EVENT,
-        payload: { url, method, responseBody: body },
-      },
+      { type: RESPONSE_BODY_EVENT, payload: { url, method, responseBody: body } },
       '*'
     );
-  } catch {
-    // 忽略
-  }
+  } catch { /* ignore */ }
 }
 
 // ========== Monkey Patch fetch ==========
@@ -58,21 +117,27 @@ window.fetch = async function patchedFetch(
     method = input.method.toUpperCase();
   }
 
-  // init 中的 method 优先级更高
   if (init?.method) {
     method = init.method.toUpperCase();
   }
 
-  // 解析为绝对 URL
   url = resolveUrl(url);
+  const mappedUrl = applyMapRemote(url);
 
-  const response = await originalFetch.call(this, input, init);
-
-  // 异步读取 body，不阻塞返回
-  safeReadBody(response).then((body) => {
-    if (body) {
-      postResponseBody(url, method, body);
+  // 使用映射后的 URL 发起请求
+  let actualInput: RequestInfo | URL = input;
+  if (mappedUrl !== url) {
+    if (input instanceof Request) {
+      actualInput = new Request(mappedUrl, input);
+    } else {
+      actualInput = mappedUrl;
     }
+  }
+
+  const response = await originalFetch.call(this, actualInput, init);
+
+  safeReadBody(response).then((body) => {
+    if (body) postResponseBody(url, method, body);
   });
 
   return response;
@@ -91,15 +156,20 @@ XMLHttpRequest.prototype.open = function patchedOpen(
   username?: string | null,
   password?: string | null
 ): void {
+  const resolvedUrl = resolveUrl(typeof url === 'string' ? url : url.href);
+  const mappedUrl = applyMapRemote(resolvedUrl);
+
   xhrMeta.set(this, {
     method: method.toUpperCase(),
-    url: resolveUrl(typeof url === 'string' ? url : url.href),
+    url: resolvedUrl,
   });
 
+  // 使用映射后的 URL 调用原始 open
+  const actualUrl = mappedUrl !== resolvedUrl ? mappedUrl : url;
   if (async !== undefined) {
-    originalXHROpen.call(this, method, url, async, username ?? null, password ?? null);
+    originalXHROpen.call(this, method, actualUrl, async, username ?? null, password ?? null);
   } else {
-    (originalXHROpen as Function).call(this, method, url);
+    (originalXHROpen as Function).call(this, method, actualUrl);
   }
 };
 
@@ -115,9 +185,7 @@ XMLHttpRequest.prototype.send = function patchedSend(
       if (responseText) {
         postResponseBody(meta.url, meta.method, responseText);
       }
-    } catch {
-      // responseText 在某些 responseType 下不可访问
-    }
+    } catch { /* ignore */ }
   });
 
   originalXHRSend.call(this, body);

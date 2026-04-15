@@ -1,9 +1,10 @@
 import { MessageType } from '../shared/messageTypes';
-import type { RequestRecord, Settings } from '../shared/types';
+import type { RequestRecord, Settings, MapRemoteRule } from '../shared/types';
 import { requestStore } from './requestStore';
 import { startInterceptor, stopInterceptor } from './requestInterceptor';
 import { getSettings, saveSettings, getFavorites, addFavorite, removeFavorite, updateFavorite } from './storageManager';
 import { replayRequest } from './replayEngine';
+import { getMapRemoteRules, saveMapRemoteRules, getMapRemoteEnabled, setMapRemoteEnabled } from './mapRemoteManager';
 
 /**
  * 消息处理中心
@@ -151,6 +152,32 @@ async function handleMessage(
           }).catch(() => {});
         }
         sendResponse({ success: true });
+        break;
+      }
+
+      case MessageType.GET_MAP_REMOTE_RULES: {
+        const rules = await getMapRemoteRules();
+        sendResponse({ success: true, data: rules });
+        break;
+      }
+
+      case MessageType.SAVE_MAP_REMOTE_RULES: {
+        const rules = message.payload as MapRemoteRule[];
+        await saveMapRemoteRules(rules);
+        sendResponse({ success: true });
+        break;
+      }
+
+      case MessageType.GET_MAP_REMOTE_ENABLED: {
+        const enabled = await getMapRemoteEnabled();
+        sendResponse({ success: true, data: { enabled } });
+        break;
+      }
+
+      case MessageType.SET_MAP_REMOTE_ENABLED: {
+        const { enabled } = message.payload as { enabled: boolean };
+        await setMapRemoteEnabled(enabled);
+        sendResponse({ success: true, data: { enabled } });
         break;
       }
 
