@@ -43,7 +43,7 @@ const Popup: React.FC = () => {
           sendMsg<RequestRecord[]>(MessageType.GET_REQUESTS),
           sendMsg<{ enabled: boolean }>(MessageType.GET_RECORDING_STATUS),
         ]);
-        setRequests(reqs.slice(-5).reverse());
+        setRequests(reqs.slice(-10).reverse());
         setRecording(status.enabled);
       } catch (e) {
         console.error('[Popup] Init failed:', e);

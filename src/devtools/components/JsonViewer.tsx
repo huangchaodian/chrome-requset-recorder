@@ -167,14 +167,18 @@ const JsonViewer: React.FC<JsonViewerProps> = ({ data, maxHeight = 400 }) => {
       </div>
       <div
         style={{
-          maxHeight,
+          height: maxHeight,
+          minHeight: 80,
+          maxHeight: '80vh',
           overflow: 'auto',
+          resize: 'vertical',
           padding: '8px 12px',
           fontFamily: "'SF Mono', Monaco, monospace",
           fontSize: 12,
           lineHeight: 1.6,
           background: '#f6f8fa',
           borderRadius: 4,
+          border: '1px solid #e8e8e8',
         }}
       >
         {isJson && !rawMode ? (

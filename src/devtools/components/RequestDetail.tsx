@@ -158,7 +158,7 @@ const RequestDetail: React.FC = () => {
     }
   };
 
-  const tabItems = [
+  const requestTabItems = [
     {
       key: 'overview',
       label: '概览',
@@ -172,8 +172,11 @@ const RequestDetail: React.FC = () => {
     {
       key: 'requestBody',
       label: '请求体',
-      children: <JsonViewer data={record.requestBody} maxHeight={500} />,
+      children: <JsonViewer data={record.requestBody} maxHeight={300} />,
     },
+  ];
+
+  const responseTabItems = [
     {
       key: 'responseHeaders',
       label: `响应头 (${record.responseHeaders?.length || 0})`,
@@ -182,7 +185,7 @@ const RequestDetail: React.FC = () => {
     {
       key: 'responseBody',
       label: '响应体',
-      children: <JsonViewer data={record.responseBody} maxHeight={500} />,
+      children: <JsonViewer data={record.responseBody} maxHeight={300} />,
     },
   ];
 
@@ -266,9 +269,11 @@ const RequestDetail: React.FC = () => {
         </Space>
       </div>
 
-      {/* Tab 内容区 */}
+      {/* 上下两栏内容区 */}
       <div style={{ flex: 1, overflow: 'auto', padding: '0 12px' }}>
-        <Tabs defaultActiveKey="responseBody" items={tabItems} size="small" />
+        <Tabs defaultActiveKey="requestBody" items={requestTabItems} size="small" />
+        <div style={{ borderTop: '1px solid #f0f0f0' }} />
+        <Tabs defaultActiveKey="responseBody" items={responseTabItems} size="small" />
       </div>
     </div>
   );
