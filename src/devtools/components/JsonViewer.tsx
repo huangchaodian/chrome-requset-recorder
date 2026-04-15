@@ -4,7 +4,13 @@ import { CopyOutlined, CheckOutlined } from '@ant-design/icons';
 
 interface JsonViewerProps {
   data: string | null;
-  maxHeight?: number;
+  maxHeight?: number | string;
+  /** 隐藏内置工具栏（由外部渲染） */
+  hideToolbar?: boolean;
+  /** 外部受控的 raw 模式 */
+  rawMode?: boolean;
+  /** raw 模式切换回调 */
+  onRawModeChange?: (raw: boolean) => void;
 }
 
 /** 尝试解析并格式化 JSON */
@@ -134,9 +140,18 @@ const JsonNode: React.FC<{ data: unknown; depth: number; keyName?: string }> = (
   return <div style={{ paddingLeft: indent }}>{String(data)}</div>;
 };
 
-const JsonViewer: React.FC<JsonViewerProps> = ({ data, maxHeight = 400 }) => {
-  const [rawMode, setRawMode] = useState(false);
+const JsonViewer: React.FC<JsonViewerProps> = ({
+  data,
+  maxHeight = 400,
+  hideToolbar = false,
+  rawMode: rawModeProp,
+  onRawModeChange,
+}) => {
+  const [rawModeInternal, setRawModeInternal] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const rawMode = rawModeProp !== undefined ? rawModeProp : rawModeInternal;
+  const setRawMode = onRawModeChange || setRawModeInternal;
 
   const { parsed, isJson } = useMemo(
     () => (data ? tryParseJson(data) : { parsed: null, isJson: false }),
@@ -155,21 +170,22 @@ const JsonViewer: React.FC<JsonViewerProps> = ({ data, maxHeight = 400 }) => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 8px', gap: 4 }}>
-        {isJson && (
-          <Button size="small" type={rawMode ? 'default' : 'primary'} onClick={() => setRawMode(!rawMode)}>
-            {rawMode ? '格式化' : '原始文本'}
+      {!hideToolbar && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 8px', gap: 4 }}>
+          {isJson && (
+            <Button size="small" type={rawMode ? 'default' : 'primary'} onClick={() => setRawMode(!rawMode)}>
+              {rawMode ? '格式化' : '原始文本'}
+            </Button>
+          )}
+          <Button size="small" icon={copied ? <CheckOutlined /> : <CopyOutlined />} onClick={handleCopy}>
+            {copied ? '已复制' : '复制'}
           </Button>
-        )}
-        <Button size="small" icon={copied ? <CheckOutlined /> : <CopyOutlined />} onClick={handleCopy}>
-          {copied ? '已复制' : '复制'}
-        </Button>
-      </div>
+        </div>
+      )}
       <div
         style={{
-          height: maxHeight,
           minHeight: 80,
-          maxHeight: '80vh',
+          maxHeight: maxHeight || 'none',
           overflow: 'auto',
           resize: 'vertical',
           padding: '8px 12px',
@@ -187,6 +203,40 @@ const JsonViewer: React.FC<JsonViewerProps> = ({ data, maxHeight = 400 }) => {
           <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{data}</pre>
         )}
       </div>
+    </div>
+  );
+};
+
+/** 独立的 JsonViewer 工具栏，供外部放置在 Tab 栏等位置 */
+export const JsonViewerToolbar: React.FC<{
+  data: string | null;
+  rawMode: boolean;
+  onRawModeChange: (raw: boolean) => void;
+}> = ({ data, rawMode, onRawModeChange }) => {
+  const [copied, setCopied] = useState(false);
+  const { parsed, isJson } = useMemo(
+    () => (data ? tryParseJson(data) : { parsed: null, isJson: false }),
+    [data]
+  );
+
+  if (!data) return null;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(isJson && !rawMode ? JSON.stringify(parsed, null, 2) : data);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {isJson && (
+        <Button size="small" type={rawMode ? 'default' : 'primary'} onClick={() => onRawModeChange(!rawMode)}>
+          {rawMode ? '格式化' : '原始文本'}
+        </Button>
+      )}
+      <Button size="small" icon={copied ? <CheckOutlined /> : <CopyOutlined />} onClick={handleCopy}>
+        {copied ? '已复制' : '复制'}
+      </Button>
     </div>
   );
 };

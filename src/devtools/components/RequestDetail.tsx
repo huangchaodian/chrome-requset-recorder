@@ -8,7 +8,7 @@ import {
   SwapOutlined,
   DiffOutlined,
 } from '@ant-design/icons';
-import JsonViewer from './JsonViewer';
+import JsonViewer, { JsonViewerToolbar } from './JsonViewer';
 import { useRequestStore } from '../stores/requestStore';
 import { sendMessage } from '../hooks/useMessageBridge';
 import { MessageType } from '../../shared/messageTypes';
@@ -112,6 +112,10 @@ const RequestDetail: React.FC = () => {
   const setDiffRight = useRequestStore((s) => s.setDiffRight);
   const [replaying, setReplaying] = useState(false);
   const [favorited, setFavorited] = useState(false);
+  const [reqTabKey, setReqTabKey] = useState('requestBody');
+  const [resTabKey, setResTabKey] = useState('responseBody');
+  const [reqBodyRawMode, setReqBodyRawMode] = useState(false);
+  const [resBodyRawMode, setResBodyRawMode] = useState(false);
 
   if (!activeRequest) {
     return (
@@ -172,7 +176,7 @@ const RequestDetail: React.FC = () => {
     {
       key: 'requestBody',
       label: '请求体',
-      children: <JsonViewer data={record.requestBody} maxHeight={300} />,
+      children: <JsonViewer data={record.requestBody} maxHeight={800} hideToolbar rawMode={reqBodyRawMode} onRawModeChange={setReqBodyRawMode} />,
     },
   ];
 
@@ -185,7 +189,7 @@ const RequestDetail: React.FC = () => {
     {
       key: 'responseBody',
       label: '响应体',
-      children: <JsonViewer data={record.responseBody} maxHeight={300} />,
+      children: <JsonViewer data={record.responseBody} maxHeight="66vh" hideToolbar rawMode={resBodyRawMode} onRawModeChange={setResBodyRawMode} />,
     },
   ];
 
@@ -271,9 +275,25 @@ const RequestDetail: React.FC = () => {
 
       {/* 上下两栏内容区 */}
       <div style={{ flex: 1, overflow: 'auto', padding: '0 12px' }}>
-        <Tabs defaultActiveKey="requestBody" items={requestTabItems} size="small" />
+        <Tabs
+          activeKey={reqTabKey}
+          onChange={setReqTabKey}
+          items={requestTabItems}
+          size="small"
+          tabBarExtraContent={reqTabKey === 'requestBody' ? (
+            <JsonViewerToolbar data={record.requestBody} rawMode={reqBodyRawMode} onRawModeChange={setReqBodyRawMode} />
+          ) : undefined}
+        />
         <div style={{ borderTop: '1px solid #f0f0f0' }} />
-        <Tabs defaultActiveKey="responseBody" items={responseTabItems} size="small" />
+        <Tabs
+          activeKey={resTabKey}
+          onChange={setResTabKey}
+          items={responseTabItems}
+          size="small"
+          tabBarExtraContent={resTabKey === 'responseBody' ? (
+            <JsonViewerToolbar data={record.responseBody} rawMode={resBodyRawMode} onRawModeChange={setResBodyRawMode} />
+          ) : undefined}
+        />
       </div>
     </div>
   );
