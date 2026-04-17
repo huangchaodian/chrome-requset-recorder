@@ -6,7 +6,6 @@ import {
   StarFilled,
   SwapOutlined,
   DiffOutlined,
-  SaveOutlined,
 } from '@ant-design/icons';
 import JsonViewer, { JsonViewerToolbar } from './JsonViewer';
 import HeaderEditor from './HeaderEditor';
@@ -132,7 +131,6 @@ const OverviewTab: React.FC<{ record: RequestRecord; keyword?: string }> = ({ re
 
 const RequestDetail: React.FC = () => {
   const activeRequest = useRequestStore((s) => s.activeRequest);
-  const addRequest = useRequestStore((s) => s.addRequest);
   const setActiveRequest = useRequestStore((s) => s.setActiveRequest);
   const diffPair = useRequestStore((s) => s.diffPair);
   const setDiffLeft = useRequestStore((s) => s.setDiffLeft);
@@ -174,12 +172,6 @@ const RequestDetail: React.FC = () => {
 
   const record = activeRequest;
 
-  /** 判断是否有修改 */
-  const isModified =
-    editMethod !== record.method ||
-    editUrl !== record.url ||
-    editBody !== (record.requestBody || '');
-
   /** 构建发送用的请求对象 */
   const buildRequest = (): RequestRecord => ({
     ...record,
@@ -217,13 +209,6 @@ const RequestDetail: React.FC = () => {
     } finally {
       setReplaying(false);
     }
-  };
-
-  /** 保存为新记录 */
-  const handleSave = () => {
-    const edited = buildRequest();
-    addRequest(edited);
-    message.success('已保存为新记录');
   };
 
   /** 收藏请求 */
@@ -340,11 +325,7 @@ const RequestDetail: React.FC = () => {
               Diff B
             </Button>
           </Tooltip>
-          {isModified && (
-            <Button size="small" icon={<SaveOutlined />} onClick={handleSave}>
-              保存为新记录
-            </Button>
-          )}
+
           <Button
             size="small"
             type="primary"

@@ -64,17 +64,21 @@ function buildTree(requests: RequestRecord[]): BuildResult {
       }
 
       const lastSeg = segments[segments.length - 1] || fullPath;
+      // lastSeg 中可能含 query（因为 pathWithQuery = pathname + search），取纯路径名
+      const lastSegName = lastSeg.split('?')[0];
       if (records.length === 1) {
         currentChildren.push({
-          key: records[0].id, label: lastSeg, children: [], record: records[0],
+          key: records[0].id, label: lastSegName, children: [], record: records[0],
         });
         ancestorMap.set(records[0].id, [...ancestorKeys]);
       } else {
         for (const rec of records) {
-          const query = new URL(rec.url).search.slice(1).slice(0, 30);
+          const search = new URL(rec.url).search; // 含 ?，如 "?a=1&b=2"
+          const querySuffix = search ? search.slice(1, 31) + (search.length > 32 ? '...' : '') : '';
+          const label = querySuffix ? `${lastSegName}?${querySuffix}` : lastSegName;
           currentChildren.push({
             key: rec.id,
-            label: `${lastSeg.split('?')[0]}?${query}...`,
+            label,
             children: [], record: rec,
           });
           ancestorMap.set(rec.id, [...ancestorKeys]);

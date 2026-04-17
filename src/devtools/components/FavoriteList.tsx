@@ -45,8 +45,6 @@ const FavoriteItem: React.FC<{
 }> = ({ record, onViewDetail }) => {
   const removeFavorite = useFavoriteStore((s) => s.removeFavorite);
   const updateFavorite = useFavoriteStore((s) => s.updateFavorite);
-  const setActiveRequest = useRequestStore((s) => s.setActiveRequest);
-  const setView = useRequestStore((s) => s.setView);
 
   const [editing, setEditing] = useState(false);
   const [alias, setAlias] = useState(record.alias || '');
@@ -92,11 +90,6 @@ const FavoriteItem: React.FC<{
 
   const handleViewDetail = () => {
     onViewDetail(record);
-  };
-
-  const handleEdit = () => {
-    setActiveRequest(record);
-    setView('edit');
   };
 
   return (
@@ -171,7 +164,6 @@ const FavoriteItem: React.FC<{
         <Space size={4}>
           <Button size="small" type="text" onClick={handleViewDetail}>详情</Button>
           <Button size="small" type="text" icon={<EditOutlined />} onClick={() => setEditing(true)}>别名</Button>
-          <Button size="small" type="text" icon={<EditOutlined />} onClick={handleEdit}>编辑</Button>
           <Button size="small" type="text" icon={<SendOutlined />} loading={replaying} onClick={handleReplay}>重放</Button>
           <Popconfirm title="确认取消收藏？" onConfirm={handleRemove} okText="确认" cancelText="取消">
             <Button size="small" type="text" danger icon={<DeleteOutlined />}>取消收藏</Button>
