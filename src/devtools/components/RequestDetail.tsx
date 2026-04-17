@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
-import { Tabs, Button, Space, Descriptions, Tag, Tooltip, message } from 'antd';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Tabs, Button, Space, Descriptions, Tag, Tooltip, Input, Select, Alert, message } from 'antd';
 import {
-  EditOutlined,
   SendOutlined,
   StarOutlined,
   StarFilled,
   SwapOutlined,
   DiffOutlined,
+  SaveOutlined,
 } from '@ant-design/icons';
 import JsonViewer, { JsonViewerToolbar } from './JsonViewer';
+import HeaderEditor from './HeaderEditor';
 import HighlightText from './HighlightText';
 import { useRequestStore } from '../stores/requestStore';
 import { sendMessage } from '../hooks/useMessageBridge';
 import { MessageType } from '../../shared/messageTypes';
-import type { RequestRecord, ReplayResult, FavoriteRecord } from '../../shared/types';
+import { HTTP_METHODS } from '../../shared/constants';
+import type { RequestRecord, ReplayResult, FavoriteRecord, Header } from '../../shared/types';
 
 /** 请求头表格渲染 */
 const HeadersTable: React.FC<{ headers: { name: string; value: string }[]; keyword?: string }> = ({ headers, keyword }) => {
@@ -78,6 +80,27 @@ function formatTime(ts: number): string {
   });
 }
 
+/** 校验 JSON 格式 */
+function validateJson(text: string): { valid: boolean; error?: string } {
+  if (!text || !text.trim()) return { valid: true };
+  try {
+    JSON.parse(text);
+    return { valid: true };
+  } catch (e) {
+    return { valid: false, error: (e as Error).message };
+  }
+}
+
+/** 尝试格式化 JSON，非 JSON 原样返回 */
+function tryFormatJson(text: string): string {
+  if (!text || !text.trim()) return text;
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
 /** 概览 Tab */
 const OverviewTab: React.FC<{ record: RequestRecord; keyword?: string }> = ({ record, keyword }) => (
   <div style={{ padding: '12px 0' }}>
@@ -109,17 +132,37 @@ const OverviewTab: React.FC<{ record: RequestRecord; keyword?: string }> = ({ re
 
 const RequestDetail: React.FC = () => {
   const activeRequest = useRequestStore((s) => s.activeRequest);
-  const setView = useRequestStore((s) => s.setView);
+  const addRequest = useRequestStore((s) => s.addRequest);
+  const setActiveRequest = useRequestStore((s) => s.setActiveRequest);
   const diffPair = useRequestStore((s) => s.diffPair);
   const setDiffLeft = useRequestStore((s) => s.setDiffLeft);
   const setDiffRight = useRequestStore((s) => s.setDiffRight);
   const keyword = useRequestStore((s) => s.filters.keyword);
+
+  // 内联编辑状态
+  const [editMethod, setEditMethod] = useState('GET');
+  const [editUrl, setEditUrl] = useState('');
+  const [editHeaders, setEditHeaders] = useState<Header[]>([]);
+  const [editBody, setEditBody] = useState('');
+
+  // 重放状态
   const [replaying, setReplaying] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [reqTabKey, setReqTabKey] = useState('requestBody');
   const [resTabKey, setResTabKey] = useState('responseBody');
-  const [reqBodyRawMode, setReqBodyRawMode] = useState(false);
   const [resBodyRawMode, setResBodyRawMode] = useState(false);
+
+  // JSON 校验
+  const jsonValidation = useMemo(() => validateJson(editBody), [editBody]);
+
+  // 当 activeRequest 变化时，同步编辑状态
+  useEffect(() => {
+    if (!activeRequest) return;
+    setEditMethod(activeRequest.method || 'GET');
+    setEditUrl(activeRequest.url || '');
+    setEditHeaders(activeRequest.requestHeaders ? [...activeRequest.requestHeaders] : []);
+    setEditBody(tryFormatJson(activeRequest.requestBody || ''));
+  }, [activeRequest?.id]);
 
   if (!activeRequest) {
     return (
@@ -131,22 +174,56 @@ const RequestDetail: React.FC = () => {
 
   const record = activeRequest;
 
-  /** 编辑请求 */
-  const handleEdit = () => {
-    setView('edit');
-  };
+  /** 判断是否有修改 */
+  const isModified =
+    editMethod !== record.method ||
+    editUrl !== record.url ||
+    editBody !== (record.requestBody || '');
 
-  /** 重放请求 */
+  /** 构建发送用的请求对象 */
+  const buildRequest = (): RequestRecord => ({
+    ...record,
+    id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    method: editMethod,
+    url: editUrl,
+    requestHeaders: editHeaders.filter((h) => h.name.trim()),
+    requestBody: editBody.trim() || null,
+    timestamp: Date.now(),
+    type: 'replayed' as const,
+    parentId: record.id,
+  });
+
+  /** 重放请求（使用编辑后的数据） */
   const handleReplay = async () => {
     setReplaying(true);
     try {
-      const result = await sendMessage<ReplayResult>(MessageType.REPLAY_REQUEST, record);
+      const req = buildRequest();
+      const result = await sendMessage<ReplayResult>(MessageType.REPLAY_REQUEST, req);
       message.success(`重放完成 - 状态码: ${result.status}，耗时: ${formatDuration(result.duration)}`);
+      // 等待 NEW_REQUEST 广播到达后选中重放记录（最多等 2s）
+      const replayedId = result.id;
+      const deadline = Date.now() + 2000;
+      const poll = setInterval(() => {
+        const found = useRequestStore.getState().requests.find((r) => r.id === replayedId);
+        if (found) {
+          clearInterval(poll);
+          setActiveRequest(found);
+        } else if (Date.now() > deadline) {
+          clearInterval(poll);
+        }
+      }, 50);
     } catch (err: unknown) {
       message.error(`重放失败: ${err instanceof Error ? err.message : '未知错误'}`);
     } finally {
       setReplaying(false);
     }
+  };
+
+  /** 保存为新记录 */
+  const handleSave = () => {
+    const edited = buildRequest();
+    addRequest(edited);
+    message.success('已保存为新记录');
   };
 
   /** 收藏请求 */
@@ -166,6 +243,28 @@ const RequestDetail: React.FC = () => {
     }
   };
 
+  // 请求体编辑 Tab
+  const requestBodyTab = (
+    <div style={{ paddingTop: 8 }}>
+      <Input.TextArea
+        value={editBody}
+        onChange={(e) => setEditBody(e.target.value)}
+        placeholder="请求体内容（支持 JSON、纯文本等）"
+        autoSize={{ minRows: 6, maxRows: 20 }}
+        style={{ fontFamily: 'monospace', fontSize: 12 }}
+      />
+      {!jsonValidation.valid && editBody.trim() && (
+        <Alert
+          type="warning"
+          message={`JSON 格式错误: ${jsonValidation.error}`}
+          style={{ marginTop: 8 }}
+          showIcon
+          banner
+        />
+      )}
+    </div>
+  );
+
   const requestTabItems = [
     {
       key: 'overview',
@@ -175,12 +274,16 @@ const RequestDetail: React.FC = () => {
     {
       key: 'requestHeaders',
       label: `请求头 (${record.requestHeaders?.length || 0})`,
-      children: <HeadersTable headers={record.requestHeaders || []} keyword={keyword} />,
+      children: (
+        <div style={{ paddingTop: 8 }}>
+          <HeaderEditor headers={editHeaders} onChange={setEditHeaders} />
+        </div>
+      ),
     },
     {
       key: 'requestBody',
       label: '请求体',
-      children: <JsonViewer data={record.requestBody} maxHeight={800} hideToolbar rawMode={reqBodyRawMode} onRawModeChange={setReqBodyRawMode} keyword={keyword} />,
+      children: requestBodyTab,
     },
   ];
 
@@ -211,24 +314,6 @@ const RequestDetail: React.FC = () => {
           flexShrink: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-          <Tag color="blue" style={{ flexShrink: 0 }}>{record.method}</Tag>
-          <Tag color={getStatusColor(record.responseStatus)} style={{ flexShrink: 0 }}>
-            {record.responseStatus}
-          </Tag>
-          <span
-            style={{
-              fontSize: 12,
-              fontFamily: 'monospace',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-            title={record.url}
-          >
-            <HighlightText text={record.url} keyword={keyword} />
-          </span>
-        </div>
         <Space size={4} style={{ flexShrink: 0 }}>
           <Tooltip title={diffPair.left ? `Diff A 已设: ${truncateUrlShort(diffPair.left.url)}` : '标记为 Diff 基准 (A)'}>
             <Button
@@ -255,9 +340,11 @@ const RequestDetail: React.FC = () => {
               Diff B
             </Button>
           </Tooltip>
-          <Button size="small" icon={<EditOutlined />} onClick={handleEdit}>
-            编辑
-          </Button>
+          {isModified && (
+            <Button size="small" icon={<SaveOutlined />} onClick={handleSave}>
+              保存为新记录
+            </Button>
+          )}
           <Button
             size="small"
             type="primary"
@@ -277,6 +364,36 @@ const RequestDetail: React.FC = () => {
         </Space>
       </div>
 
+      {/* URL + 方法编辑区 */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          padding: '8px 12px',
+          borderBottom: '1px solid #f0f0f0',
+          flexShrink: 0,
+          alignItems: 'center',
+        }}
+      >
+        <Tag color={getStatusColor(record.responseStatus)} style={{ flexShrink: 0 }}>
+          {record.responseStatus}
+        </Tag>
+        <Select
+          size="small"
+          value={editMethod}
+          onChange={setEditMethod}
+          style={{ width: 100, flexShrink: 0 }}
+          options={HTTP_METHODS.map((m) => ({ label: m, value: m }))}
+        />
+        <Input
+          size="small"
+          value={editUrl}
+          onChange={(e) => setEditUrl(e.target.value)}
+          style={{ fontFamily: 'monospace', fontSize: 12 }}
+          onPressEnter={handleReplay}
+        />
+      </div>
+
       {/* 上下两栏内容区 */}
       <div style={{ flex: 1, overflow: 'auto', padding: '0 12px' }}>
         <Tabs
@@ -284,9 +401,6 @@ const RequestDetail: React.FC = () => {
           onChange={setReqTabKey}
           items={requestTabItems}
           size="small"
-          tabBarExtraContent={reqTabKey === 'requestBody' ? (
-            <JsonViewerToolbar data={record.requestBody} rawMode={reqBodyRawMode} onRawModeChange={setReqBodyRawMode} />
-          ) : undefined}
         />
         <div style={{ borderTop: '1px solid #f0f0f0' }} />
         <Tabs

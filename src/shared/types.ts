@@ -55,6 +55,8 @@ export interface FilterOptions {
 
 /** 重放结果 */
 export interface ReplayResult {
+  /** 重放生成的新请求记录 ID */
+  id: string;
   status: number;
   headers: Header[];
   body: string;

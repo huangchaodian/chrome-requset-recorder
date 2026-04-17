@@ -101,6 +101,7 @@ export async function replayRequest(record: RequestRecord): Promise<ReplayResult
   });
 
   return {
+    id: replayedRecord.id,
     status: response.status,
     headers: responseHeaders,
     body: responseBody,
