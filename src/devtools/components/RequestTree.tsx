@@ -203,8 +203,13 @@ const RequestTree: React.FC<{
   const { tree, ancestorMap } = useMemo(() => buildTree(requests), [requests]);
 
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => {
+    // 未选中请求时默认收起，选中时展开对应祖先节点
+    if (!activeRequest) return new Set<string>();
     const keys = new Set<string>();
-    tree.forEach((n) => keys.add(n.key));
+    const ancestors = ancestorMap.get(activeRequest.id);
+    if (ancestors) {
+      for (const key of ancestors) keys.add(key);
+    }
     return keys;
   });
 
@@ -227,20 +232,24 @@ const RequestTree: React.FC<{
     });
   }, [activeRequest, ancestorMap]);
 
-  // 树结构变化时，确保新域名默认展开
+  // 树结构变化时，仅在有选中请求时展开其祖先节点，否则保持收起
   useEffect(() => {
+    if (!activeRequest) return;
+    const ancestors = ancestorMap.get(activeRequest.id);
+    if (!ancestors || ancestors.length === 0) return;
+
     setExpandedKeys((prev) => {
       const next = new Set(prev);
       let changed = false;
-      for (const node of tree) {
-        if (!next.has(node.key)) {
-          next.add(node.key);
+      for (const key of ancestors) {
+        if (!next.has(key)) {
+          next.add(key);
           changed = true;
         }
       }
       return changed ? next : prev;
     });
-  }, [tree]);
+  }, [tree, activeRequest, ancestorMap]);
 
   const toggleExpand = useCallback((key: string) => {
     setExpandedKeys((prev) => {
