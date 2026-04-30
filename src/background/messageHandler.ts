@@ -1,7 +1,7 @@
 import { MessageType } from '../shared/messageTypes';
 import type { RequestRecord, Settings, MapRemoteRule } from '../shared/types';
 import { requestStore } from './requestStore';
-import { startInterceptor, stopInterceptor } from './requestInterceptor';
+import { startInterceptor, stopInterceptor, updateDomainFilter } from './requestInterceptor';
 import { getSettings, saveSettings, getFavorites, addFavorite, removeFavorite, updateFavorite } from './storageManager';
 import { replayRequest } from './replayEngine';
 import { getMapRemoteRules, saveMapRemoteRules, getMapRemoteEnabled, setMapRemoteEnabled } from './mapRemoteManager';
@@ -84,6 +84,9 @@ async function handleMessage(
         if (updated.maxRecords !== current.maxRecords) {
           requestStore.setMaxRecords(updated.maxRecords);
         }
+
+        // 同步域名过滤配置到拦截器
+        updateDomainFilter(updated.domainFilterEnabled, updated.recordDomains);
 
         await saveSettings(updated);
         sendResponse({ success: true, data: updated });

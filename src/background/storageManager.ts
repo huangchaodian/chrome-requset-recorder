@@ -141,9 +141,12 @@ export async function updateFavorite(
  */
 export async function getSettings(): Promise<Settings> {
   const result = await chrome.storage.sync.get(STORAGE_KEYS.SETTINGS);
-  return result[STORAGE_KEYS.SETTINGS] || {
-    maxRecords: DEFAULT_MAX_RECORDS,
-    isRecordingEnabled: true,
+  const stored = (result[STORAGE_KEYS.SETTINGS] || {}) as Partial<Settings>;
+  return {
+    maxRecords: stored.maxRecords ?? DEFAULT_MAX_RECORDS,
+    isRecordingEnabled: stored.isRecordingEnabled ?? true,
+    domainFilterEnabled: stored.domainFilterEnabled ?? false,
+    recordDomains: Array.isArray(stored.recordDomains) ? stored.recordDomains : [],
   };
 }
 

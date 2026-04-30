@@ -67,6 +67,10 @@ export interface ReplayResult {
 export interface Settings {
   maxRecords: number;
   isRecordingEnabled: boolean;
+  /** 是否启用域名过滤（仅录制配置的域名） */
+  domainFilterEnabled: boolean;
+  /** 允许录制的域名列表（支持精确匹配主机名，或以 . 开头的后缀匹配） */
+  recordDomains: string[];
 }
 
 /** Map Remote 规则 */

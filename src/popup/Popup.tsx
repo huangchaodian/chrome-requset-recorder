@@ -43,7 +43,7 @@ const Popup: React.FC = () => {
           sendMsg<RequestRecord[]>(MessageType.GET_REQUESTS),
           sendMsg<{ enabled: boolean }>(MessageType.GET_RECORDING_STATUS),
         ]);
-        setRequests(reqs.slice(-10).reverse());
+        setRequests(reqs.slice(-50).reverse());
         setRecording(status.enabled);
       } catch (e) {
         console.error('[Popup] Init failed:', e);
@@ -59,6 +59,15 @@ const Popup: React.FC = () => {
     setRecording(next);
   };
 
+  const handleClear = async () => {
+    try {
+      await sendMsg(MessageType.CLEAR_REQUESTS);
+      setRequests([]);
+    } catch (e) {
+      console.error('[Popup] Clear failed:', e);
+    }
+  };
+
   return (
     <div style={{ width: 360, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', fontSize: 13 }}>
       {/* 头部 */}
@@ -71,16 +80,31 @@ const Popup: React.FC = () => {
             boxShadow: recording ? '0 0 6px #f5222d' : 'none',
           }} />
         </div>
-        <button
-          onClick={handleToggle}
-          style={{
-            padding: '4px 12px', fontSize: 12, border: '1px solid #d9d9d9', borderRadius: 4,
-            background: recording ? '#fff1f0' : '#f6ffed', color: recording ? '#f5222d' : '#52c41a',
-            cursor: 'pointer',
-          }}
-        >
-          {recording ? '暂停录制' : '恢复录制'}
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={handleClear}
+            disabled={requests.length === 0}
+            title="清空所有请求记录"
+            style={{
+              padding: '4px 12px', fontSize: 12, border: '1px solid #d9d9d9', borderRadius: 4,
+              background: requests.length === 0 ? '#f5f5f5' : '#fff',
+              color: requests.length === 0 ? '#bbb' : '#595959',
+              cursor: requests.length === 0 ? 'not-allowed' : 'pointer',
+            }}
+          >
+            清空
+          </button>
+          <button
+            onClick={handleToggle}
+            style={{
+              padding: '4px 12px', fontSize: 12, border: '1px solid #d9d9d9', borderRadius: 4,
+              background: recording ? '#fff1f0' : '#f6ffed', color: recording ? '#f5222d' : '#52c41a',
+              cursor: 'pointer',
+            }}
+          >
+            {recording ? '暂停录制' : '恢复录制'}
+          </button>
+        </div>
       </div>
 
       {/* 最近请求 */}
@@ -90,6 +114,7 @@ const Popup: React.FC = () => {
         {!loading && requests.length === 0 && (
           <div style={{ padding: '12px 16px', color: '#999' }}>暂无请求记录</div>
         )}
+        <div style={{ maxHeight: 420, overflowY: 'auto' }}>
         {requests.map((r) => (
           <div key={r.id} onClick={() => {
             // 跳转到录制面板并定位到该请求
@@ -112,7 +137,7 @@ const Popup: React.FC = () => {
               flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               fontFamily: 'monospace', fontSize: 11,
             }} title={r.url}>
-              {(() => { try { const u = new URL(r.url); return u.pathname + u.search; } catch { return r.url; } })()}
+              {(() => { try { const u = new URL(r.url); return u.pathname; } catch { return r.url.split('?')[0]; } })()}
             </span>
             <span style={{ color: getStatusColor(r.responseStatus), fontWeight: 500, fontSize: 11, flexShrink: 0 }}>
               {r.responseStatus}
@@ -122,6 +147,7 @@ const Popup: React.FC = () => {
             </span>
           </div>
         ))}
+        </div>
       </div>
 
       {/* 底部操作 */}

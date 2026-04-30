@@ -7,7 +7,7 @@
  */
 
 import { requestStore } from './requestStore';
-import { startInterceptor, stopInterceptor } from './requestInterceptor';
+import { startInterceptor, stopInterceptor, updateDomainFilter } from './requestInterceptor';
 import { setupMessageHandler } from './messageHandler';
 import {
   restoreRequests,
@@ -31,6 +31,9 @@ async function initialize(): Promise<void> {
     const settings = await getSettings();
     requestStore.setMaxRecords(settings.maxRecords);
     requestStore.setRecording(settings.isRecordingEnabled);
+
+    // 同步域名过滤配置到拦截器
+    updateDomainFilter(settings.domainFilterEnabled, settings.recordDomains);
 
     // 如果用户设置为暂停，停止拦截器
     if (!settings.isRecordingEnabled) {

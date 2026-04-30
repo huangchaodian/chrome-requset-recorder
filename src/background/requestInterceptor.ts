@@ -70,6 +70,37 @@ const URL_FILTER: chrome.webRequest.RequestFilter = {
   urls: ['<all_urls>'],
 };
 
+/** 域名过滤配置（由 messageHandler / 初始化同步更新） */
+let domainFilterEnabled = false;
+let recordDomains: string[] = [];
+
+/** 更新域名过滤配置 */
+export function updateDomainFilter(enabled: boolean, domains: string[]): void {
+  domainFilterEnabled = enabled;
+  recordDomains = (domains || [])
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** 判断 URL 主机名是否匹配配置的域名（支持 .example.com 后缀匹配） */
+function matchDomain(url: string): boolean {
+  if (!domainFilterEnabled) return true;
+  if (recordDomains.length === 0) return false; // 启用过滤但未配置：录制为空
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return recordDomains.some((d) => {
+    if (d.startsWith('.')) {
+      // 后缀匹配
+      return host === d.slice(1) || host.endsWith(d);
+    }
+    return host === d || host.endsWith('.' + d);
+  });
+}
+
 /** 回调函数：onBeforeRequest - 捕获请求体和基本信息 */
 function onBeforeRequest(
   details: chrome.webRequest.WebRequestBodyDetails
@@ -79,6 +110,9 @@ function onBeforeRequest(
 
   // 仅录制 XMLHttpRequest 和 fetch 请求
   if (details.type !== 'xmlhttprequest') return;
+
+  // 域名过滤
+  if (!matchDomain(details.url)) return;
 
   pendingRequests.set(details.requestId, {
     url: details.url,
